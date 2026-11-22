@@ -22,6 +22,8 @@
   const GR = (title, html) => [title, html, 'Grammar'];
   const chat = (lines) => `<div class="chat">${lines.map(l => `<div class="bub them"><span lang="nb">${l}</span></div>`).join('')}<div class="bub me ghost">…</div></div>`;
   /* a small conversation: the learner picks what to say */
+  const tf = (vis, sentence, truth, why) => ({ k: 'mc', big: `<span class="bigvis">${vis}</span><span class="bigword" lang="nb">${sentence}</span>`, say: sentence, q: 'Does the sentence match the picture?', opts: ['Yes', 'No'], a: truth ? 'Yes' : 'No', why });
+  const gap = (sentence, en, opts, a, why) => ({ k: 'mc', q: `Fill the gap: <b lang="nb">${sentence}</b> <span class="muted">(${en})</span>`, opts, a, why });
   const dlg = (lines, opts, a, why) => ({ k: 'mc', big: chat(lines), say: lines[lines.length - 1].replace(/<[^>]+>/g, ''), q: 'What do you say?', opts, a, why });
   const mc = (q, opts, a, why, big) => ({ k: 'mc', q, opts, a, why, big });
   const hearMC = (word, q, opts, a, why) => ({ k: 'mc', say: word, q, opts, a, why });
@@ -340,13 +342,6 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
           { pre: ['A mix of all three', `<p>Now the three groups are mixed together. Listen carefully and notice the little word each time.</p>`], items: [N('en mann', 'a man', '👨'), N('ei dame', 'a lady', '👩'), N('en stol', 'a chair', '🪑')] },
           { items: [N('et vindu', 'a window', '🪟'), N('ei jakke', 'a jacket', '🧥')] }
         ]
-      }),
-      lesson('u5l5', 'Food and drink', '🍞', {
-        articles: true,
-        groups: [
-          { pre: ['At the table', `<p>Time for some food and drink words. Remember to learn each with its little word.</p>`], items: [N('en kaffe', 'a coffee', '☕'), N('et brød', 'a loaf of bread', '🍞'), N('en ost', 'a cheese', '🧀')] },
-          { items: [N('et vann', 'a (glass of) water', '💧'), N('en banan', 'a banana', '🍌')] }
-        ]
       })
     ]
   };
@@ -483,6 +478,139 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
     groups: [], review: true,
     note: '<p>A mix of <b>the</b> and <b>more than one</b>. Remember: <b>en → -en</b>, <b>et → -et</b>, <b>ei → -a</b>, plural <b>-er</b>, and “the” plural <b>-ene</b>. Say each answer out loud.</p>'
   }));
+
+  /* ───────── UNIT: TRANSPORT ───────── */
+  const uT = {
+    id: 'uT', title: 'Transport', sub: 'Getting around', blurb: 'Bus, train and boat, and how to say where you are going.',
+    lessons: [
+      lesson('uTl1', 'Bus, train, boat, plane', '🚌', {
+        articles: true,
+        groups: [{ pre: ['Ways to travel', '<p>Four new words. Look at the little word in front of each one: <b>en</b> or <b>et</b>.</p>'], items: [N('en buss', 'a bus', '🚌'), N('et tog', 'a train', '🚆'), N('en båt', 'a boat', '⛵'), N('et fly', 'a plane', '✈️')] }],
+        extra: () => [tf('🚆', 'Dette er et tog.', true, '<b>et tog</b> = a train.'), tf('⛵', 'Dette er en buss.', false, 'The picture shows <b>en båt</b>, a boat.')]
+      }),
+      lesson('uTl2', 'I take the bus', '🎫', {
+        groups: [{
+          pre: GR('“The” when you say how you travel', `<p>You know that <b>the</b> goes at the end: <i>buss → bussen</i>, <i>tog → toget</i>. Norwegians use this form when they say how they travel.</p>
+<div class="rule" lang="nb">Jeg <b>tar</b> bussen.</div>
+<p><b>tar</b> means “take”. The verb is the same for every person, as always. Going on foot or by bike needs no extra word: <i>Jeg går.</i> <i>Jeg sykler.</i></p>`),
+          items: [I('Jeg tar bussen.', 'I take the bus.', '🚌'), I('Jeg tar toget.', 'I take the train.', '🚆'), I('Jeg sykler.', 'I cycle.', '🚲'), I('Jeg går.', 'I walk.', '🚶')]
+        }],
+        extra: () => [gap('Jeg ___ bussen.', 'I take the bus', ['tar', 'er', 'har'], 'tar', '<b>Jeg tar bussen.</b>'), tf('🚲', 'Jeg tar toget.', false, 'The picture shows a bike: <b>Jeg sykler.</b>'), bank('Build: “I take the train.”', 'Jeg tar toget.', ['bussen', 'går'], 'Jeg tar toget.')]
+      }),
+      lesson('uTl3', 'Where does the bus go?', '❓', {
+        groups: [{
+          pre: GR('“Går” is for vehicles too', `<p><b>går</b> means “go” or “walk”. Buses and trains <b>go</b> as well. <b>til</b> means “to”.</p>
+<div class="rule" lang="nb"><b>Hvor</b> · <b>går</b> · <b>bussen</b>?</div>
+<p>Question word first, verb second. You know this pattern.</p>`),
+          items: [I('Hvor går bussen?', 'Where does the bus go?', '🚌'), I('Bussen går til skolen.', 'The bus goes to school.', '🏫'), I('Toget går til Bodø.', 'The train goes to Bodø.', '🏔️')]
+        }],
+        extra: () => [bank('Build: “Where does the train go?”', 'Hvor går toget?', ['er', 'bussen'], 'Hvor går toget?'), mc('Which sentence is correct?', ['Hvor går bussen?', 'Hvor bussen går?', 'Går hvor bussen?'], 'Hvor går bussen?', 'The verb is always the <b>second</b> piece in a question with a question word.')]
+      }),
+      lesson('uTl4', 'Mastery: on the way', '🎯', {
+        groups: [],
+        build: () => [
+          note('Use it for real', '<p>You are at the bus stop. Choose what you would say.</p>', '🎯'),
+          dlg(['Unnskyld, hvor går bussen?'], ['Bussen går til skolen.', 'Jeg heter Anna.', 'Ha det bra!'], 'Bussen går til skolen.', 'Answer with <b>går til</b> …'),
+          dlg(['Tar du bussen?'], ['Ja, jeg tar bussen.', 'Hyggelig å møte deg.', 'God natt.'], 'Ja, jeg tar bussen.', 'A question turns the verb around: <b>Tar du …?</b>'),
+          dlg(['Hvor går toget?'], ['Toget går til Bodø.', 'Jeg sykler.', 'Takk, bra!'], 'Toget går til Bodø.', '<b>Toget går til …</b>'),
+          tf('🚶', 'Jeg går.', true, '<b>Jeg går</b> = I walk.'),
+          bank('Build: “I take the bus to school.”', 'Jeg tar bussen til skolen.', ['toget', 'går'], 'Jeg tar bussen til skolen.')
+        ]
+      })
+    ]
+  };
+
+  /* ───────── UNIT: WEATHER ───────── */
+  const uW = {
+    id: 'uW', title: 'Vær', sub: 'Weather', blurb: 'Talking about cold, snow and sunshine.',
+    lessons: [
+      lesson('uWl1', 'Hot and cold', '🥶', {
+        groups: [{
+          pre: GR('Weather starts with “det er”', `<p>Norwegians love to talk about the weather. It starts like English: <b>det er</b> (“it is”).</p>
+<div class="rule" lang="nb">Det er <b>kaldt</b>.</div>
+<p>A describing word (an <b>adjective</b>) such as <i>kald</i> (cold) gets a <b>-t</b> after <b>det er</b>: <i>kald → kaldt</i>, <i>varm → varmt</i>.</p>`),
+          items: [I('Det er kaldt.', 'It is cold.', '🥶'), I('Det er varmt.', 'It is warm.', '🥵'), I('Det er fint vær.', 'The weather is nice.', '🌤️'), I('Det er dårlig vær.', 'The weather is bad.', '⛈️')]
+        }],
+        extra: () => [gap('Det er ___.', 'It is cold', ['kaldt', 'kald', 'kalde'], 'kaldt', 'After <b>det er</b> the word gets a <b>-t</b>: <b>kaldt</b>.'), tf('🥵', 'Det er kaldt.', false, 'The picture shows warm weather: <b>Det er varmt.</b>')]
+      }),
+      lesson('uWl2', 'Snow, rain and wind', '❄️', {
+        groups: [{
+          pre: GR('Weather as a verb', `<p>English says “it is snow<b>ing</b>”. Norwegian just uses one short verb.</p>
+<div class="rule" lang="nb">Det <b>snør</b>. · Det <b>regner</b>. · Det <b>blåser</b>.</div>
+<p><b>Det regner</b> means both “it rains” and “it is raining”. There is no “-ing” form in Norwegian.</p>`),
+          items: [I('Det snør.', 'It is snowing.', '❄️'), I('Det regner.', 'It is raining.', '🌧️'), I('Det blåser.', 'It is windy.', '💨'), I('Solen skinner.', 'The sun is shining.', '☀️')]
+        }],
+        extra: () => [tf('☀️', 'Solen skinner.', true, '<b>Solen skinner.</b> = The sun is shining.'), tf('🌧️', 'Det snør.', false, 'The picture shows rain: <b>Det regner.</b>'), bank('Build: “It is snowing.”', 'Det snør.', ['er', 'regner'], 'Det snør.')]
+      }),
+      lesson('uWl3', 'Today the weather is …', '📅', {
+        groups: [{
+          pre: GR('The verb stays in second place', `<p><b>i dag</b> means “today”. When a sentence starts with it, the verb still has to be the <b>second</b> piece, so it jumps in front of <b>det</b>.</p>
+<div class="rule" lang="nb">Det er kaldt. → <b>I dag er det</b> kaldt.</div>
+<div class="rule" lang="nb">Det snør. → <b>I dag snør det</b>.</div>
+<p>This is one of the most important rules in Norwegian: <b>the verb is always in second place</b>.</p>`),
+          items: [I('Hvordan er været?', 'What is the weather like?', '🌍'), I('I dag er det kaldt.', 'Today it is cold.', '📅'), I('I dag snør det.', 'Today it is snowing.', '🌨️')]
+        }],
+        extra: () => [bank('Build: “Today it is cold.”', 'I dag er det kaldt.', ['snør', 'varmt'], 'I dag <b>er</b> det kaldt: the verb stays second.'), mc('Which sentence is correct?', ['I dag er det kaldt.', 'I dag det er kaldt.', 'Er I dag det kaldt.'], 'I dag er det kaldt.', 'The verb comes in <b>second</b> place, right after <b>i dag</b>.')]
+      }),
+      lesson('uWl4', 'Mastery: small talk', '🎯', {
+        groups: [],
+        build: () => [
+          note('Weather small talk', '<p>Talking about the weather is the classic way to start a conversation in Norway.</p>', '🎯'),
+          dlg(['Hvordan er været?'], ['Det er fint vær.', 'Jeg heter Anna.', 'Takk, bra!'], 'Det er fint vær.', '<b>Det er fint vær.</b>'),
+          dlg(['Det snør!'], ['Ja, det er kaldt.', 'Jeg tar bussen.', 'Ha det bra!'], 'Ja, det er kaldt.', 'Snow means cold: <b>Ja, det er kaldt.</b>'),
+          dlg(['Hei! Hvordan er været i dag?'], ['I dag regner det.', 'I dag heter det.', 'Vær så god.'], 'I dag regner det.', 'The verb is second: <b>I dag regner det.</b>'),
+          tf('🌧️', 'Det regner.', true, '<b>Det regner.</b>'),
+          tf('🥶', 'Det er varmt.', false, 'The picture shows cold: <b>Det er kaldt.</b>'),
+          bank('Build: “Today it is warm.”', 'I dag er det varmt.', ['kaldt', 'snør'], 'I dag er det varmt.')
+        ]
+      })
+    ]
+  };
+
+  /* ───────── UNIT: FOOD ───────── */
+  const uM = {
+    id: 'uM', title: 'Mat og drikke', sub: 'Food and drink', blurb: 'Order something to eat and ask what it costs.',
+    lessons: [
+      lesson('uMl1', 'Drinks', '☕', {
+        articles: true,
+        groups: [{ pre: ['Something to drink', '<p>Four drinks, and all three little words: <b>en</b>, <b>ei</b>, <b>et</b>.</p>'], items: [N('en kaffe', 'a coffee', '☕'), N('en te', 'a tea', '🍵'), N('ei melk', 'a milk', '🥛', 'In Bokmål <i>en melk</i> is also correct.'), N('et vann', 'a water', '💧')] }],
+        extra: () => [tf('🍵', 'Dette er en te.', true, '<b>en te</b> = a tea.'), tf('💧', 'Dette er en kaffe.', false, 'The picture shows <b>et vann</b>, water.')]
+      }),
+      lesson('uMl2', 'Food', '🍞', {
+        articles: true,
+        groups: [{ items: [N('et brød', 'a loaf of bread', '🍞'), N('en ost', 'a cheese', '🧀'), N('en pizza', 'a pizza', '🍕'), N('en suppe', 'a soup', '🍲')] }],
+        extra: () => [tf('🧀', 'Dette er en ost.', true, '<b>en ost</b> = a cheese.'), tf('🍕', 'Dette er et brød.', false, 'The picture shows <b>en pizza</b>.')]
+      }),
+      lesson('uMl3', 'I would like …', '🙋', {
+        groups: [{
+          pre: GR('“Jeg vil ha” = I would like', `<p><b>Jeg vil ha</b> is the normal way to order something (literally “I want to have”).</p>
+<div class="rule" lang="nb">Jeg <b>vil ha</b> en kaffe, <b>takk</b>.</div>
+<p>After <b>vil</b> the next verb is <b>ha</b>, with no ending. A question turns the words around: <b>Vil du ha …?</b> Add <b>takk</b> to be polite.</p>`),
+          items: [I('Jeg vil ha en kaffe, takk.', 'I would like a coffee, please.', '☕'), I('Vil du ha et brød?', 'Would you like some bread?', '🍞'), I('Ja, takk.', 'Yes, please.', '👍'), I('Nei, takk.', 'No, thank you.', '🙅')]
+        }],
+        extra: () => [bank('Build: “I would like a tea, please.”', 'Jeg vil ha en te, takk.', ['har', 'et'], 'Jeg vil ha en te, takk.'), bank('Build: “Would you like a coffee?”', 'Vil du ha en kaffe?', ['jeg', 'ei'], 'Vil du ha en kaffe?')]
+      }),
+      lesson('uMl4', 'How much is it?', '🪙', {
+        groups: [{
+          pre: ['Norwegian money', '<p>The money is <b>kroner</b> (written <b>kr</b>). One is <b>én krone</b>, several are <b>kroner</b>. <b>koster</b> means “costs”. You know the numbers: <b>ti</b> is 10 and <b>tjue</b> is 20.</p>'],
+          items: [I('Hva koster det?', 'How much is it?', '💬'), I('Det koster ti kroner.', 'It costs ten kroner.', '🪙'), I('Det koster tjue kroner.', 'It costs twenty kroner.', '💰')]
+        }],
+        extra: () => [{ k: 'mc', say: 'Det koster tjue kroner', q: 'How much does it cost? Tap the price.', opts: ['10 kr', '20 kr', '12 kr'], a: '20 kr', why: '<b>tjue</b> = 20.' }, bank('Build: “How much is it?”', 'Hva koster det?', ['er', 'vil'], 'Hva koster det?')]
+      }),
+      lesson('uMl5', 'Mastery: at the café', '🎯', {
+        groups: [],
+        build: () => [
+          note('Order at the café', '<p>You are at the counter. The new question here is <b lang="nb">Hva vil du ha?</b>, “What would you like?”. Choose what you say.</p>', '🎯'),
+          dlg(['Hva vil du ha?'], ['Jeg vil ha en kaffe, takk.', 'Jeg heter Anna.', 'Det koster tjue kroner.'], 'Jeg vil ha en kaffe, takk.', '<b>Jeg vil ha …, takk.</b>'),
+          dlg(['Vil du ha et brød?'], ['Ja, takk.', 'Ha det bra!', 'Hei!'], 'Ja, takk.', '<b>Ja, takk.</b> = Yes, please.'),
+          dlg(['Det koster ti kroner.'], ['Vær så god.', 'God natt.', 'Hva heter du?'], 'Vær så god.', 'You hand over the money: <b>Vær så god.</b>'),
+          dlg(['Takk!'], ['Vær så god!', 'Unnskyld.', 'God morgen.'], 'Vær så god!', '<b>Vær så god</b> is the reply to <b>takk</b>.'),
+          tf('☕', 'Dette er en kaffe.', true, '<b>en kaffe</b>.'),
+          bank('Build: “I would like a coffee and a bread.”', 'Jeg vil ha en kaffe og et brød.', ['te', 'har'], '<b>og</b> = and.')
+        ]
+      })
+    ]
+  };
 
   /* ───────── UNIT 7: MY AND YOUR ───────── */
   const flip = (src, en, a, why) => ({ k: 'type', big: `<span class="bigword" lang="nb">${src}</span>`, q: `Say <b>“${en}”</b> the other way round.`, a: Array.isArray(a) ? a : [a], why });
@@ -669,5 +797,5 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
     ]
   };
 
-  window.UNITS = [u1, u2, u4, u3, u5, u6, u7, u8];
+  window.UNITS = [u1, u2, u4, u3, u5, u6, uT, uW, uM, u7, u8];
 })();

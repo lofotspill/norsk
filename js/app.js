@@ -31,24 +31,50 @@
     speechSynthesis.onvoiceschanged = () => { findVoice(); if (state.view === 'home') render(); };
   }
   const audioOK = () => hasTTS && !!voice;
-  let curUtter = null, speakTimer = 0;
-  function speak(text, slow) {
-    if (!hasTTS) return;
+  let curUtter = null, speakTimer = 0, curAudio = null;
+  const HAVE = new Set(window.AUDIO_FILES || []);
+  const slug = (t) => String(t).toLowerCase().replace(/[.,!?…]/g, '').trim().replace(/\s+/g, '-');
+  function stopAll() {
     clearTimeout(speakTimer);
     try { speechSynthesis.cancel(); } catch (e) { /* ignore */ }
-    /* a short pause after cancel() and a held reference to the utterance stop browsers from cutting the speech off */
+    if (curAudio) { try { curAudio.pause(); } catch (e) { /* ignore */ } curAudio = null; }
+  }
+  /* The slow button says the words one at a time with a pause between them. A single word is said twice.
+     This works with every voice, also those that ignore the speed setting. */
+  function tts(text, slow) {
     speakTimer = setTimeout(() => {
-      try {
-        const u = new SpeechSynthesisUtterance(String(text).replace(/\.\.\./g, ''));
-        u.lang = 'nb-NO';
-        if (voice) u.voice = voice;
-        u.rate = slow ? 0.7 : 0.9;
-        u.onend = u.onerror = () => { if (curUtter === u) curUtter = null; };
-        curUtter = u;
-        speechSynthesis.speak(u);
-        if (speechSynthesis.paused) speechSynthesis.resume();
-      } catch (e) { /* ignore */ }
+      const parts = text.split(/\s+/).filter(Boolean);
+      const queue = !slow ? [text] : (parts.length === 1 ? [parts[0], parts[0]] : parts);
+      let i = 0;
+      const next = () => {
+        if (i >= queue.length) return;
+        try {
+          const u = new SpeechSynthesisUtterance(queue[i++]);
+          u.lang = 'nb-NO';
+          if (voice) u.voice = voice;
+          u.rate = slow ? 0.6 : 0.9;
+          u.onend = () => { if (curUtter === u) speakTimer = setTimeout(next, slow ? 650 : 0); };
+          u.onerror = () => { if (curUtter === u) curUtter = null; };
+          curUtter = u;
+          speechSynthesis.speak(u);
+          if (speechSynthesis.paused) speechSynthesis.resume();
+        } catch (e) { /* ignore */ }
+      };
+      next();
     }, 90);
+  }
+  function speak(text, slow) {
+    stopAll();
+    const clean = String(text).replace(/\.\.\./g, '');
+    const f = slug(clean) + (slow ? '-sakte' : '');
+    if (HAVE.has(f)) {
+      const a = new Audio('audio/' + encodeURIComponent(f) + '.mp3');
+      curAudio = a;
+      a.onerror = () => { curAudio = null; if (hasTTS) tts(clean, slow); };
+      a.play().catch(() => { curAudio = null; if (hasTTS) tts(clean, slow); });
+      return;
+    }
+    if (hasTTS) tts(clean, slow);
   }
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-say]');
@@ -102,6 +128,18 @@
   }) : ({
     k: 'mc', big: bigWord(it), say: sayOf(it), q: 'What does this mean?', opts: options(it, pool, x => x.en), a: it.en, why: whyOf(it)
   });
+  const uniqPics = (pool) => { const seen = new Set(); return pool.filter(x => hasPic(x) && !seen.has(x.vis) && seen.add(x.vis)); };
+  const exPicTap = (it, pool) => {
+    const ps = uniqPics(pool);
+    if (!hasPic(it) || ps.length < 3) return exHear(it, pool);
+    const others3 = shuffle(ps.filter(x => x.vis !== it.vis)).slice(0, 3).map(x => x.vis);
+    return { k: 'mc', pics: true, say: sayOf(it), q: 'Tap the picture that matches what you hear.', opts: shuffle([it.vis].concat(others3)), a: it.vis, why: whyOf(it) };
+  };
+  const exPMatch = (items) => {
+    const ok = items.length >= 2 && items.every(it => hasPic(it) && !it.num) && new Set(items.map(i => i.vis)).size === items.length;
+    if (!ok) return exMatch(items);
+    return { k: 'match', pics: true, q: 'Match each picture with its word.', pairs: items.map(it => [it.vis, it.no]), why: items.map(it => `<b lang="nb">${it.no}</b> = ${it.en}`).join(' · ') };
+  };
   const exMatch = (items) => ({
     k: 'match', q: 'Tap the matching pairs.', pairs: items.map(it => [it.no, it.num ? it.vis : it.en]),
     why: items.map(it => `<b lang="nb">${it.no}</b> = ${it.num ? it.vis : it.en}`).join(' · ')
@@ -169,12 +207,16 @@
     const st = [];
     sp.groups.forEach(g => {
       if (g.pre) st.push(toNote(g.pre));
-      g.items.forEach(it => st.push({ k: 'card', item: it }));
-      st.push(...drill(g.items, pool, sp));
+      st.push({ k: 'grid', items: g.items });
+      st.push(exPMatch(g.items));
+      const its = shuffle(g.items);
+      st.push(sp.articles ? exArt(its[0]) : exPicTap(its[0], pool));
+      st.push(exEnNo(its[1] || its[0], pool));
       if (g.post) st.push(toNote(g.post));
     });
-    if (all.length >= 3) st.push(exMatch(shuffle(all).slice(0, 4)));
-    st.push(...finalMix(all, pool, sp));
+    const mix = shuffle(all);
+    st.push(exTypeHear(mix[0]));
+    st.push(exNoEn(mix[1] || mix[0], pool));
     if (sp.extra) st.push(...sp.extra());
     return st;
   }
@@ -306,6 +348,7 @@
     const s = R.q[R.i];
     if (s.k === 'note') return renderNote(R, s);
     if (s.k === 'card') return renderCard(R, s);
+    if (s.k === 'grid') return renderGrid(R, s);
     return renderExercise(R, s);
   }
 
@@ -324,6 +367,30 @@
       <div class="row" style="justify-content:flex-end"><button class="btn" id="go">Continue →</button></div>`;
     wireQuit(); app.querySelector('#go').onclick = next; app.querySelector('#go').focus();
   }
+
+  function renderGrid(R, s) {
+    const seen = new Set();
+    app.innerHTML = `${bar(R)}
+      <section class="card gridcard">
+        <div class="badge">New words</div>
+        <div class="q" style="text-align:center;margin-top:14px">Tap each one to hear it.</div>
+        <div class="tilegrid">${s.items.map((it, i) => `<button class="wtile" data-i="${i}">${hasPic(it) ? `<span class="wv">${it.vis}</span>` : ''}<span class="wn" lang="nb">${it.no}</span><span class="we">${it.en}</span></button>`).join('')}</div>
+        <div id="gsel" class="gsel" hidden></div>
+      </section>
+      <div class="row" style="justify-content:flex-end"><button class="btn" id="go" disabled>Continue →</button></div>`;
+    wireQuit();
+    const tiles = [...app.querySelectorAll('.wtile')];
+    tiles.forEach(t => t.onclick = () => {
+      const it = s.items[+t.dataset.i];
+      tiles.forEach(x => x.classList.remove('on')); t.classList.add('on', 'seen');
+      seen.add(+t.dataset.i); speak(sayOf(it));
+      const g = app.querySelector('#gsel'); g.hidden = false;
+      g.innerHTML = `<div class="gword"><b lang="nb">${it.no}</b><span>${audioBtns(sayOf(it))}</span></div>${it.tip ? `<div class="tip">${it.tip}</div>` : ''}`;
+      if (seen.size === s.items.length) { const go = app.querySelector('#go'); go.disabled = false; go.classList.add('ready'); }
+    });
+    app.querySelector('#go').onclick = next;
+  }
+  const audioBtns = (w) => `<button class="say" data-say="${esc(w)}" aria-label="Listen">🔊</button><button class="say" data-say="${esc(w)}" data-slow="1" aria-label="Listen slowly">🐢</button>`;
 
   function renderCard(R, s) {
     const it = s.item;
@@ -351,8 +418,8 @@
     if (s.k === 'mc') {
       s.shuf = s.shuf || shuffle(s.opts);
       body = `${s.big ? `<div class="bigwrap">${s.big}</div>` : ''}${audioBar(s.say)}
-        <div class="opts ${s.shuf.every(o => String(o).length < 12) ? 'two' : ''}" role="radiogroup">
-        ${s.shuf.map((o, i) => `<button class="opt" role="radio" aria-checked="false" data-i="${i}" lang="nb">${o}</button>`).join('')}</div>`;
+        <div class="opts ${s.pics ? 'pics' : (s.shuf.every(o => String(o).length < 12) ? 'two' : '')}" role="radiogroup">
+        ${s.shuf.map((o, i) => `<button class="opt ${s.pics ? 'picbtn' : ''}" role="radio" aria-checked="false" data-i="${i}" lang="nb">${o}</button>`).join('')}</div>`;
     } else if (s.k === 'type') {
       body = `${s.big ? `<div class="bigwrap">${s.big}</div>` : ''}${audioBar(s.say)}
         <input class="ans" id="ans" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Your answer" lang="nb">
@@ -361,7 +428,7 @@
       s.left = s.left || shuffle(s.pairs.map(p => p[0]));
       s.right = s.right || shuffle(s.pairs.map(p => p[1]));
       body = `<div class="match">
-        <div style="display:grid;gap:10px">${s.left.map(l => `<button class="opt" data-l="${esc(l)}" lang="nb">${l}</button>`).join('')}</div>
+        <div style="display:grid;gap:10px">${s.left.map(l => `<button class="opt ${s.pics ? 'bigemo' : ''}" data-l="${esc(l)}" lang="nb">${l}</button>`).join('')}</div>
         <div style="display:grid;gap:10px">${s.right.map(r => `<button class="opt" data-r="${esc(r)}">${r}</button>`).join('')}</div></div>`;
     } else if (s.k === 'bank') {
       s.order = s.order || shuffle(s.tiles.map((t, i) => i));
@@ -436,12 +503,13 @@
       lefts.forEach(b => b.onclick = () => {
         if (answered || b.classList.contains('done')) return;
         lefts.forEach(x => x.classList.remove('sel')); b.classList.add('sel'); pickL = b;
-        speak(b.dataset.l);
+        if (!s.pics) speak(b.dataset.l);
       });
       rights.forEach(b => b.onclick = () => {
         if (answered || b.classList.contains('done') || !pickL) return;
         if (pairOf[pickL.dataset.l] === b.dataset.r) {
           pickL.classList.remove('sel'); pickL.classList.add('done'); b.classList.add('done'); pickL = null; done++;
+          if (s.pics) speak(b.dataset.r);
           if (done === s.pairs.length) finish(mistakes === 0, s.pairs.map(p => `${p[0]} = ${p[1]}`).join(' · '));
         } else { mistakes++; b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 500); }
       });
@@ -512,6 +580,31 @@
       raf = requestAnimationFrame(step);
       document.addEventListener('visibilitychange', () => { if (document.hidden) cancelAnimationFrame(raf); else raf = requestAnimationFrame(step); });
     }
+  })();
+
+  /* ───────── night mode ───────── */
+  (function theme() {
+    const btn = document.getElementById('themeBtn'), K = 'norsk123.theme';
+    let saved = null; try { saved = localStorage.getItem(K); } catch (e) { /* ignore */ }
+    const mq = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+    const apply = (t) => { document.documentElement.dataset.theme = t; btn.textContent = t === 'dark' ? '☀️ Day' : '🌙 Night'; btn.setAttribute('aria-pressed', t === 'dark'); };
+    apply(saved || (mq && mq.matches ? 'dark' : 'light'));
+    if (mq && mq.addEventListener) mq.addEventListener('change', (e) => { if (!saved) apply(e.matches ? 'dark' : 'light'); });
+    btn.onclick = () => { const n = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; saved = n; try { localStorage.setItem(K, n); } catch (e) { /* ignore */ } apply(n); };
+    /* twinkling stars, only visible at night */
+    const c = document.getElementById('stars'), x = c.getContext('2d');
+    let w = 0, h = 0, st = [];
+    const size = () => { w = c.width = innerWidth; h = c.height = innerHeight; st = Array.from({ length: Math.min(160, Math.round(w / 8)) }, () => ({ x: Math.random() * w, y: Math.random() * h * 0.85, r: 0.5 + Math.random() * 1.5, p: Math.random() * 6.28, s: 0.6 + Math.random() * 1.6 })); };
+    size(); addEventListener('resize', size);
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    (function f(t) {
+      if (document.documentElement.dataset.theme === 'dark') {
+        x.clearRect(0, 0, w, h);
+        st.forEach(o => { const a = reduce ? 0.8 : 0.35 + 0.65 * Math.abs(Math.sin(t / 1000 * o.s + o.p)); x.globalAlpha = a; x.fillStyle = '#fff'; x.beginPath(); x.arc(o.x, o.y, o.r, 0, 6.283); x.fill(); });
+        x.globalAlpha = 1;
+      }
+      requestAnimationFrame(f);
+    })(0);
   })();
 
   window.__norsk = { state };
