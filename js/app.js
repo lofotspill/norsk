@@ -395,13 +395,36 @@
   }
 
   /* ───────── state + render ───────── */
-  const state = { view: 'home', run: null, guide: null };
+  const needName = () => { const sh = jget(SHARE, null); return !!formCfg() && !(sh && sh.name); };
+  const state = { view: needName() ? 'name' : 'home', run: null, guide: null };
   function render() {
     dz = null;
-    ({ home: renderHome, step: renderStep, done: renderDone, guide: renderGuide })[state.view]();
+    ({ home: renderHome, step: renderStep, done: renderDone, guide: renderGuide, name: renderName })[state.view]();
     app.focus({ preventScroll: true });
   }
   function go(view) { state.view = view; render(); window.scrollTo({ top: 0 }); }
+
+  /* ───────── first visit: ask for a name, so the teacher can see who is who ───────── */
+  function renderName() {
+    app.innerHTML = `<section class="card hero namecard">
+      <h1><span lang="nb">Hei!</span> 👋</h1>
+      <p class="lead">Welcome to <b>Norsk på 1·2·3</b>. First, what is your name?</p>
+      <p class="muted">Write your name or a nickname. Your teacher can see your name, the lessons you finish and your stars, so your teacher can follow your progress. You can switch this off later under “Save or restore my progress”.</p>
+      <div class="coderow"><input class="ans" id="yourname" placeholder="Your name or nickname" aria-label="Your name or nickname" maxlength="40" autocomplete="given-name"><button class="btn" id="namego" disabled>Start →</button></div>
+      <p class="muted small">Already have a progress code? Enter your name first, then paste the code on the next page.</p>
+    </section>`;
+    const inp = app.querySelector('#yourname'), go = app.querySelector('#namego');
+    inp.focus();
+    inp.addEventListener('input', () => { go.disabled = inp.value.trim().length < 2; });
+    const done = () => {
+      const n = inp.value.trim();
+      if (n.length < 2) return;
+      jset(SHARE, { on: true, name: n });
+      state.view = 'home'; render(); window.scrollTo({ top: 0 });
+    };
+    go.onclick = done;
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') done(); });
+  }
 
   /* ───────── home: the path ───────── */
   const KIND = { intro: 'Start', ord: 'Words', bruk: 'Use it', samtale: 'Talk', mester: 'Mastery' };
@@ -1024,6 +1047,7 @@
   /* ───────── header / footer ───────── */
   document.getElementById('homeLink').addEventListener('click', (e) => {
     e.preventDefault();
+    if (state.view === 'name') return;
     if (state.view === 'step') { if (confirm('Leave this lesson? Your progress in this lesson will be lost.')) go('home'); }
     else go('home');
   });
