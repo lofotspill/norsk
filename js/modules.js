@@ -225,7 +225,7 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
       }),
       lesson('u3l2', 'Count 6 to 10, and zero', '🔟', {
         groups: [
-          { pre: ['Six to ten', `<p>Watch out for <b>sju</b>. It starts with <b>sj</b>, which you know from the alphabet unit: it sounds like <i>sh</i>. So <i>sju</i> is “shoo”.</p>`], items: [NUM('seks', 6, 'six'), NUM('sju', 7, 'seven', '<b>sj</b> = <i>sh</i>. Also written <i>syv</i>.'), NUM('åtte', 8, 'eight', 'The <b>å</b> sounds like <i>aw</i>. Two t’s, so a short vowel.')] },
+          { pre: ['Six to ten', `<p>Watch out for <b>sju</b>. It starts with <b>sj</b>, which you know from the alphabet unit: it sounds like <i>sh</i>. So <i>sju</i> is “shoo”.</p>`], items: [NUM('seks', 6, 'six'), Object.assign(NUM('sju', 7, 'seven', '<b>sj</b> = <i>sh</i>. Also written <i>syv</i>.'), { alt: ['syv'] }), NUM('åtte', 8, 'eight', 'The <b>å</b> sounds like <i>aw</i>. Two t’s, so a short vowel.')] },
           { items: [NUM('ni', 9, 'nine'), NUM('ti', 10, 'ten'), NUM('null', 0, 'zero')] }
         ]
       }),
@@ -238,7 +238,7 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
       lesson('u3l4', 'Count 16 to 20', '⏭️', {
         groups: [
           { pre: ['Keep going', `<p>The pattern continues. <b>16 to 19</b> still end in <b>-ten</b> (or very nearly), and then comes twenty.</p>`], items: [NUM('seksten', 16, 'sixteen'), NUM('sytten', 17, 'seventeen'), NUM('atten', 18, 'eighteen', 'Two t’s, so the vowel is short.')] },
-          { pre: ['Nineteen and twenty', `<p><b>tjue</b> begins with <b>tj</b>, which sounds like the soft “h” of <i>kino</i>. You can also write it <i>tyve</i>.</p>`], items: [NUM('nitten', 19, 'nineteen'), NUM('tjue', 20, 'twenty', '<b>tj</b> is a soft <i>h</i>: “hyoo-eh”. Also written <i>tyve</i>.')] }
+          { pre: ['Nineteen and twenty', `<p><b>tjue</b> begins with <b>tj</b>, which sounds like the soft “h” of <i>kino</i>. You can also write it <i>tyve</i>.</p>`], items: [NUM('nitten', 19, 'nineteen'), Object.assign(NUM('tjue', 20, 'twenty', '<b>tj</b> is a soft <i>h</i>: “hyoo-eh”. Also written <i>tyve</i>.'), { alt: ['tyve'] })] }
         ]
       }),
       lesson('u3l5', 'Number practice', '🎯', { review: 'num', groups: [] })
@@ -257,7 +257,7 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
       }),
       lesson('u4l2', 'Thanks and sorry', '🙏', {
         groups: [
-          { pre: ['Being polite', `<p>Norwegians say <b>takk</b> (thanks) a lot. You learned it in the alphabet unit with its short vowel.</p>`], items: [I('takk', 'thanks', '🙏'), I('vær så god', 'you’re welcome; here you are', '🎁', { tip: 'Say it when handing something over, or after someone says <i>takk</i>.' }), I('unnskyld', 'sorry; excuse me', '🙇', { tip: 'Pronounced “oon-shyl”. <b>sk</b> before <b>y</b> sounds like <i>sh</i>.' })] },
+          { pre: ['Being polite', `<p>Norwegians say <b>takk</b> (thanks) a lot. Say it with a short, sharp <b>a</b>.</p>`], items: [I('takk', 'thanks', '🙏'), I('vær så god', 'you’re welcome; here you are', '🎁', { tip: 'Say it when handing something over, or after someone says <i>takk</i>.' }), I('unnskyld', 'sorry; excuse me', '🙇', { tip: 'Pronounced “oon-shyl”. <b>sk</b> before <b>y</b> sounds like <i>sh</i>.' })] },
           { items: [I('ja', 'yes', '✅'), I('nei', 'no', '❌'), I('vær så snill', 'please', '🥺')] }
         ]
       }),
@@ -366,9 +366,9 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
 <tr><td>${G('et')} et hus</td><td><b>huset</b></td><td class="hl">-et</td></tr>
 </table>
 <p>This is why the gender matters: it decides the ending.</p>`],
-            items: [I('bilen', 'the car', '🚗', { tip: 'en bil → bil<b>en</b>' }), I('huset', 'the house', '🏠', { tip: 'et hus → hus<b>et</b>' }), I('jenta', 'the girl', '👧', { tip: 'ei jente → jent<b>a</b>. (<i>jenten</i> is also correct.)' })]
+            items: [I('bilen', 'the car', '🚗', { tip: 'en bil → bil<b>en</b>' }), I('huset', 'the house', '🏠', { tip: 'et hus → hus<b>et</b>' }), I('jenta', 'the girl', '👧', { alt: ['jenten'], tip: 'ei jente → jent<b>a</b>. (<i>jenten</i> is also correct.)' })]
           },
-          { items: [I('hunden', 'the dog', '🐶', { tip: 'en hund → hund<b>en</b>' }), I('eplet', 'the apple', '🍎', { tip: 'et eple → epl<b>et</b>' }), I('boka', 'the book', '📖', { tip: 'ei bok → bok<b>a</b>. (<i>boken</i> is also correct.)' })] }
+          { items: [I('hunden', 'the dog', '🐶', { tip: 'en hund → hund<b>en</b>' }), I('eplet', 'the apple', '🍎', { tip: 'et eple → epl<b>et</b>' }), I('boka', 'the book', '📖', { alt: ['boken'], tip: 'ei bok → bok<b>a</b>. (<i>boken</i> is also correct.)' })] }
         ],
         extra: () => [
           tfmc('en katt', 'the cat', ['katten', 'kattet', 'katta'], 'katten', 'en katt → kat<b>ten</b>: <b>en</b>-words add <b>-en</b>.'),
@@ -797,5 +797,5 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
     ]
   };
 
-  window.UNITS = [u1, u2, u4, u3, u5, u6, uT, uW, uM, u7, u8];
+  window.UNITS = [u1, u4, u2, u3, u5, u6, uT, uW, uM, u7, u8];
 })();

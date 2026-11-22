@@ -84,6 +84,9 @@
   /* ───────── helpers ───────── */
   const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const norm = (s) => s.normalize('NFC').toLowerCase().replace(/[.,!?]/g, '').replace(/\s+/g, ' ').trim();
+  const fold = (t) => t.replace(/å/g, 'a').replace(/ø/g, 'o').replace(/æ/g, 'e');
+  const lev = (a, b) => { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j;
+    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; };
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
   /* ───────── exercise generators (only ever used on items already taught) ───────── */
@@ -91,7 +94,7 @@
   const art = (it) => (it.noun && /^(en|ei|et) /.test(it.no)) ? it.no.split(' ')[0] : null;
   const bare = (it) => it.noun ? it.no.replace(/^(en|ei|et) /, '') : it.no;
   const answersOf = (it) => {
-    const a = [it.no];
+    const a = [it.no].concat(it.alt || []);
     if (it.noun) { a.push(bare(it)); if (it.no.startsWith('ei ')) a.push(it.no.replace(/^ei /, 'en ')); }
     return a;
   };
@@ -265,6 +268,8 @@
       h += '</div></div>';
     });
     app.innerHTML = h;
+    const curNode = app.querySelector('.node.current');
+    if (curNode && Object.keys(p.lessons || {}).length) setTimeout(() => curNode.scrollIntoView({ block: 'center' }), 50);
     app.querySelectorAll('[data-lesson]').forEach(b => b.addEventListener('click', () => startLesson(FLAT[+b.dataset.lesson])));
     const pr = app.querySelector('#practice');
     if (pr) pr.onclick = () => {
@@ -338,8 +343,9 @@
       <button class="bigsay" data-say="${esc(word)}" data-slow="1">🐢 Slowly</button></div>
       ${audioOK() ? '' : `<div class="noaudio">Audio is not available on this device. The word is: <b lang="nb">${word}</b></div>`}`;
 
-  const feedbackHTML = (ok, s, correct) => `<div class="feedback ${ok ? 'ok' : 'no'}" role="status">
-    <b lang="nb">${ok ? 'Riktig!' : 'Ikke helt.'} <span style="font-weight:400" lang="en">${ok ? '(Correct)' : '(Not quite. This one will come back.)'}</span></b>
+  const feedbackHTML = (ok, s, correct, near) => `<div class="feedback ${ok ? 'ok' : 'no'}" role="status">
+    <b lang="nb">${near ? 'Nesten!' : ok ? 'Riktig!' : 'Ikke helt.'} <span style="font-weight:400" lang="en">${near ? '(Almost. Check the spelling.)' : ok ? '(Correct)' : '(Not quite. This one will come back.)'}</span></b>
+    ${near && correct ? `<div>Spelled: <b lang="nb">${correct}</b></div>` : ''}
     ${!ok && correct ? `<div>Correct answer: <b lang="nb">${correct}</b></div>` : ''}
     <div>${s.why || ''}</div></div>`;
 
@@ -441,6 +447,7 @@
         ${body}
         <div id="fb"></div>
         <div class="row" style="justify-content:flex-end">
+          ${(s.k === 'type' || s.k === 'bank') ? '<button class="linkish" id="skip" style="margin-right:auto">I do not know</button>' : ''}
           <button class="btn" id="check" ${s.k === 'match' ? 'hidden' : 'disabled'}>Check</button>
         </div>
       </section>`;
@@ -449,13 +456,14 @@
     const $ = (x) => app.querySelector(x);
     const fb = $('#fb'), btn = $('#check');
     let answered = false;
+    const sk = $('#skip'); if (sk) sk.onclick = () => { if (answered) return; const i = $('#ans'); if (i) { i.disabled = true; i.classList.add('wrong'); } sk.hidden = true; finish(false, s.a[0]); };
 
-    const finish = (ok, correctText) => {
+    const finish = (ok, correctText, near) => {
       answered = true;
       if (ok) { if (s.tries === 0) R.first++; }
       else if (s.k !== 'match' && s.tries < 2) R.q.push(Object.assign({}, s, { tries: s.tries + 1, shuf: null, order: null }));
-      fb.innerHTML = feedbackHTML(ok, s, correctText);
-      btn.hidden = false; btn.disabled = false;
+      fb.innerHTML = feedbackHTML(ok, s, correctText, near);
+      btn.hidden = false; btn.disabled = false; if (sk) sk.hidden = true;
       btn.textContent = R.i === R.q.length - 1 ? 'Finish' : 'Continue →';
       btn.onclick = next; btn.focus();
     };
@@ -492,9 +500,11 @@
       });
       btn.onclick = () => {
         if (answered) return;
-        const ok = s.a.map(norm).includes(norm(inp.value));
-        inp.disabled = true; inp.classList.add(ok ? 'right' : 'wrong');
-        finish(ok, s.a[0]);
+        const val = norm(inp.value), ans = s.a.map(norm);
+        let ok = ans.includes(val), near = false;
+        if (!ok) near = ans.some(x => fold(x) === fold(val) || (val.length >= 5 && x.length >= 5 && lev(x, val) <= 1));
+        inp.disabled = true; inp.classList.add(ok || near ? 'right' : 'wrong');
+        finish(ok || near, s.a[0], near && !ok);
       };
     } else if (s.k === 'match') {
       let pickL = null, mistakes = 0, done = 0;
