@@ -7,14 +7,14 @@
 
   /* flat lesson list: lessons unlock one after another */
   const FLAT = [];
-  UNITS.forEach(u => u.lessons.forEach(l => FLAT.push({ unit: u, lesson: l, idx: FLAT.length })));
+  UNITS.forEach(u => u.lessons.forEach((l, j) => FLAT.push({ unit: u, lesson: l, idx: FLAT.length, ui: j })));
 
   /* ───────── progress ───────── */
   let mem = { lessons: {}, xp: 0 };
   const load = () => { try { const s = localStorage.getItem(KEY); return s ? JSON.parse(s) : mem; } catch (e) { return mem; } };
   const save = (p) => { mem = p; try { localStorage.setItem(KEY, JSON.stringify(p)); } catch (e) { /* ignore */ } };
   const isDone = (id) => !!(load().lessons || {})[id];
-  const isOpen = (i) => i === 0 || isDone(FLAT[i - 1].lesson.id);
+  const isOpen = (i) => i === 0 || isDone(FLAT[i - 1].lesson.id) || isDone(FLAT[i].lesson.id);
 
   /* ───────── speech ───────── */
   let voice = null;
@@ -65,7 +65,7 @@
   }
   function speak(text, slow) {
     stopAll();
-    const clean = String(text).replace(/\.\.\./g, '');
+    const clean = String(text).replace(/<[^>]+>/g, '').replace(/\.\.\./g, '');
     const f = slug(clean) + (slow ? '-sakte' : '');
     if (HAVE.has(f)) {
       const a = new Audio('audio/' + encodeURIComponent(f) + '.mp3');
@@ -88,6 +88,58 @@
   const lev = (a, b) => { const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j;
     for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; };
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const plain = (s) => String(s).replace(/<[^>]+>/g, '');
+
+  /* ───────── drag and drop: pointer events, with a tap as the fallback ─────────
+     One set of listeners for the whole app. Each exercise registers what can be dragged (sel),
+     where it can be dropped (drop), and what a tap or a drop does. A short press is a tap,
+     moving more than a few pixels starts a drag. Keyboard activation also counts as a tap. */
+  let dz = null, dg = null;
+  const setDnd = (cfg) => { dz = cfg; };
+  const under = (x, y) => { const el = document.elementFromPoint(x, y); return el && dz && dz.drop ? el.closest(dz.drop) : null; };
+  app.addEventListener('pointerdown', (e) => {
+    if (!dz || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    const el = e.target.closest(dz.sel);
+    if (!el || el.disabled || el.dataset.lock === '1') return;
+    dg = { el, x: e.clientX, y: e.clientY, on: false, ghost: null, over: null, dx: 0, dy: 0 };
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!dg) return;
+    if (!dg.on) {
+      if (Math.hypot(e.clientX - dg.x, e.clientY - dg.y) < 8) return;
+      if (dz && dz.canDrag && !dz.canDrag(dg.el)) return;
+      dg.on = true;
+      const r = dg.el.getBoundingClientRect();
+      const g = dg.el.cloneNode(true);
+      g.classList.add('dragghost'); g.removeAttribute('id'); g.removeAttribute('data-drop');
+      g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
+      document.body.appendChild(g);
+      dg.ghost = g; dg.dx = e.clientX - r.left; dg.dy = e.clientY - r.top;
+      dg.el.classList.add('dragging');
+    }
+    dg.ghost.style.left = (e.clientX - dg.dx) + 'px';
+    dg.ghost.style.top = (e.clientY - dg.dy) + 'px';
+    const t = under(e.clientX, e.clientY);
+    if (t !== dg.over) { if (dg.over) dg.over.classList.remove('over'); dg.over = t; if (t) t.classList.add('over'); }
+    e.preventDefault();
+  }, { passive: false });
+  function endDrag(e, cancel) {
+    if (!dg) return;
+    const d = dg; dg = null;
+    if (d.ghost) d.ghost.remove();
+    d.el.classList.remove('dragging');
+    if (d.over) d.over.classList.remove('over');
+    if (!dz || cancel) return;
+    if (!d.on) { if (dz.onTap) dz.onTap(d.el); return; }
+    if (dz.onDrop) dz.onDrop(d.el, under(e.clientX, e.clientY));
+  }
+  window.addEventListener('pointerup', (e) => endDrag(e, false));
+  window.addEventListener('pointercancel', (e) => endDrag(e, true));
+  app.addEventListener('click', (e) => {
+    if (e.detail !== 0 || !dz) return;
+    const el = e.target.closest(dz.sel);
+    if (el && !el.disabled && el.dataset.lock !== '1' && dz.onTap) dz.onTap(el);
+  });
 
   /* ───────── exercise generators (only ever used on items already taught) ───────── */
   const sayOf = (it) => (it.say || it.no).replace('...', '');
@@ -102,6 +154,7 @@
   const hasPic = (it) => it.vis !== it.no;
   const bigVis = (it) => `<span class="bigvis">${it.vis}</span>`;
   const bigWord = (it) => `<span class="bigword" lang="nb">${it.no}</span>`;
+  const words = (it) => it.no.trim().split(/\s+/).length;
 
   function others(item, pool, n, lab) {
     const seen = new Set([lab(item)]), out = [];
@@ -161,36 +214,55 @@
       why: `<b lang="nb">${it.no}</b>${a === 'ei' ? '. (<i>en ' + bare(it) + '</i> is also correct in Bokmål.)' : '.'}`
     };
   };
+  /* build a word letter by letter after hearing it */
+  const LET = 'abdefghiklmnoprstuvyæøå'.split('');
+  const exSpell = (it) => {
+    const w = it.no, have = new Set(w.split(''));
+    const extra = shuffle(LET.filter(c => !have.has(c))).slice(0, 2);
+    return { k: 'bank', join: '', letters: true, q: 'Listen, then spell the word with the letters.', say: sayOf(it), tiles: w.split('').concat(extra), a: [w], why: whyOf(it) };
+  };
+  /* drag the words to the pictures */
+  const exLabel = (items) => ({
+    k: 'label', q: 'Drag each word to its picture.', pairs: items.map(it => [it.vis, it.no]),
+    why: items.map(it => `<b lang="nb">${it.no}</b> = ${it.en}`).join(' · ')
+  });
+  const exMemory = (items) => {
+    const pics = items.every(it => hasPic(it) && !it.num) && new Set(items.map(i => i.vis)).size === items.length;
+    return pics
+      ? { k: 'memory', q: 'Find the pairs: a picture and its word.', pairs: items.map(it => [it.vis, it.no]), noSide: 1, why: items.map(it => `<b lang="nb">${it.no}</b> = ${it.en}`).join(' · ') }
+      : { k: 'memory', q: 'Find the pairs: the Norwegian and its meaning.', pairs: items.map(it => [it.no, it.num ? it.vis : it.en]), noSide: 0, why: items.map(it => `<b lang="nb">${it.no}</b> = ${it.num ? it.vis : it.en}`).join(' · ') };
+  };
 
-  function drill(items, pool, spec) {
-    const st = items.map((it, i) => (spec.articles && i % 2 === 0) ? exArt(it) : (i % 2 === 0 ? exPic(it, pool) : exHear(it, pool, spec.digits !== false)));
-    return st;
+  /* one varied practice step per group of new words */
+  function groupPractice(items, n) {
+    const picsOK = items.length >= 3 && items.every(hasPic) && !items.some(i => i.num) && new Set(items.map(i => i.vis)).size === items.length;
+    const opts = [() => exPMatch(items)];
+    if (picsOK && items.every(i => i.no.length <= 16)) opts.push(() => exLabel(items));
+    if (items.length >= 3 && items.every(i => i.no.length <= 13)) opts.push(() => exMemory(items));
+    return opts[n % opts.length]();
   }
-  function finalMix(all, pool, spec) {
-    const types = ['enNo', 'typeHear', 'noEn', 'typeEn', 'hear', 'enNo'];
-    return shuffle(all).slice(0, 3).map((it, i) => {
-      switch (types[i]) {
-        case 'enNo': return spec.articles && i % 2 ? exArt(it) : exEnNo(it, pool);
-        case 'typeHear': return exTypeHear(it);
-        case 'noEn': return exNoEn(it, pool);
-        case 'typeEn': return exTypeEn(it);
-        default: return exHear(it, pool, i % 2 === 0);
-      }
-    });
-  }
-  function reviewSteps(pool, n) {
+
+  function reviewSteps(pool, n, targets) {
     const seen = new Set();
     pool = pool.filter(it => !seen.has(it.no) && seen.add(it.no));
     if (pool.length < 4) return [];
-    const mix = shuffle(pool);
+    const mix = targets && targets.length ? targets : shuffle(pool);
+    const picsPool = pool.filter(i => hasPic(i) && !i.num && i.no.length <= 16);
     const out = [];
-    const kinds = ['enNo', 'hear', 'typeHear', 'noEn', 'match', 'typeEn', 'hear', 'enNo', 'match', 'noEn'];
+    const kinds = ['enNo', 'hear', 'spell', 'noEn', 'match', 'typeEn', 'hear', 'label', 'memory', 'typeHear'];
     for (let i = 0; i < n; i++) {
       const it = mix[i % mix.length];
-      const k = kinds[i % kinds.length];
+      let k = kinds[i % kinds.length];
+      const single = !/\s/.test(it.no);
+      if (k === 'spell' && !single) k = 'typeHear';
+      if (k === 'label' && uniqPics(picsPool).length < 3) k = 'enNo';
+      if (k === 'memory' && pool.filter(x => x.no.length <= 13).length < 4) k = 'match';
       if (k === 'match') out.push(exMatch(shuffle(pool).slice(0, Math.min(4, pool.length))));
+      else if (k === 'memory') out.push(exMemory(shuffle(pool.filter(x => x.no.length <= 13)).slice(0, 4)));
+      else if (k === 'label') out.push(exLabel(shuffle(uniqPics(picsPool)).slice(0, 3)));
       else if (k === 'enNo') out.push(exEnNo(it, pool));
       else if (k === 'hear') out.push(exHear(it, pool, i % 2 === 0));
+      else if (k === 'spell') out.push(exSpell(it));
       else if (k === 'typeHear') out.push(exTypeHear(it));
       else if (k === 'noEn') out.push(exNoEn(it, pool));
       else out.push(exTypeEn(it));
@@ -199,43 +271,78 @@
   }
   const toNote = (p) => Array.isArray(p) ? { k: 'note', title: p[0], html: p[1], tag: p[2] } : p;
 
+  /* the grammar and sound notes of a unit, collected for its Guide page */
+  function guideNotes(u) {
+    const out = [], seen = new Set();
+    const add = (p) => { const n = p && toNote(p); if (n && (n.tag === 'Grammar' || n.tag === 'Sounds' || n.guide) && !seen.has(n.title)) { seen.add(n.title); out.push(n); } };
+    u.lessons.forEach(l => {
+      (l.spec.groups || []).forEach(g => { add(g.pre); add(g.post); });
+      (l.spec.guide || []).forEach(add);
+    });
+    return out;
+  }
+
+  /* a short, mixed lesson that closes a unit and brings back older material */
+  function mesterSteps(f) {
+    const sp = f.lesson.spec;
+    const own = f.unit.lessons.filter(l => l !== f.lesson).flatMap(l => l.items);
+    const earlier = FLAT.filter(x => x.idx < f.idx && x.unit !== f.unit).flatMap(x => x.lesson.items).filter(i => words(i) <= 2);
+    const old = shuffle(earlier).slice(0, 4);
+    const pool = own.concat(old);
+    const nBase = sp.mix ? 7 : 9;
+    const targets = shuffle(own).slice(0, nBase - Math.min(2, old.length)).concat(old.slice(0, 2));
+    const base = reviewSteps(pool, nBase, shuffle(targets));
+    const extra = sp.mix ? sp.mix() : [];
+    const out = base.slice();
+    extra.forEach((ex, j) => out.splice(Math.min(out.length, 2 + j * 3), 0, ex));
+    return [{ k: 'note', title: 'Mastery time', icon: '🏆', html: sp.note || '<p>A mix of everything in this unit, with a few older words and phrases too. Say the answers out loud. When you finish, the next unit opens.</p>' }].concat(out);
+  }
+
   function buildSteps(f) {
     const sp = f.lesson.spec;
     if (sp.build) return sp.build();
-    if (sp.review) {
-      const pool = f.unit.lessons.filter(l => l !== f.lesson).flatMap(l => l.items);
-      return [{ k: 'note', title: 'Mix it up', icon: '🎯', html: sp.note || '<p>Time to mix everything you have learned in this unit. Say the answers out loud.</p>' }].concat(reviewSteps(pool, 10));
-    }
-    const all = f.lesson.items, pool = all.concat(sp.pool || []);
+    if (sp.mester || sp.review) return mesterSteps(f);
+    const all = f.lesson.items;
+    const prior = f.unit.lessons.slice(0, f.ui).flatMap(l => l.items);
+    let seen = (sp.pool || []).slice();
     const st = [];
-    sp.groups.forEach(g => {
+    sp.groups.forEach((g, gi) => {
+      seen = seen.concat(g.items);
+      const first = g.items[0];
+      const same = prior.filter(p => !!p.noun === !!first.noun && !!p.num === !!first.num && (words(p) > 1) === (words(first) > 1));
+      const pool = seen.concat(shuffle(same).slice(0, 4));
       if (g.pre) st.push(toNote(g.pre));
       st.push({ k: 'grid', items: g.items });
-      st.push(exPMatch(g.items));
+      st.push(groupPractice(g.items, f.idx + gi));
       const its = shuffle(g.items);
       st.push(sp.articles ? exArt(its[0]) : exPicTap(its[0], pool));
-      st.push(exEnNo(its[1] || its[0], pool));
+      if (g.items.length >= 4 || gi === sp.groups.length - 1) st.push(exEnNo(its[1] || its[0], pool));
       if (g.post) st.push(toNote(g.post));
     });
-    const mix = shuffle(all);
-    st.push(exTypeHear(mix[0]));
-    st.push(exNoEn(mix[1] || mix[0], pool));
+    if (!sp.noend) {
+      const mix = shuffle(all);
+      const single = mix.filter(i => !/\s/.test(i.no) && i.no.length >= 2);
+      st.push(single.length ? exSpell(single[0]) : exTypeHear(mix[0]));
+      st.push(exNoEn(mix[1] || mix[0], seen));
+    }
     if (sp.extra) st.push(...sp.extra());
     return st;
   }
 
   /* ───────── state + render ───────── */
-  const state = { view: 'home', run: null };
+  const state = { view: 'home', run: null, guide: null };
   function render() {
-    ({ home: renderHome, step: renderStep, done: renderDone })[state.view]();
+    dz = null;
+    ({ home: renderHome, step: renderStep, done: renderDone, guide: renderGuide })[state.view]();
     app.focus({ preventScroll: true });
   }
   function go(view) { state.view = view; render(); window.scrollTo({ top: 0 }); }
 
   /* ───────── home: the path ───────── */
+  const KIND = { intro: 'Start', ord: 'Words', bruk: 'Use it', samtale: 'Talk', mester: 'Mastery' };
   function renderHome() {
     const p = load();
-    const doneCount = Object.keys(p.lessons || {}).length;
+    const doneCount = Object.keys(p.lessons || {}).filter(id => FLAT.some(f => f.lesson.id === id)).length;
     let h = `<section class="card hero">
       <h1><span lang="nb">Hei!</span> 👋</h1>
       <p class="lead">Welcome to <b>Norsk på 1·2·3</b>. Learn Norwegian (Bokmål) in small, friendly steps: new words, then sentences, then grammar that explains how it all fits. Start at the top and follow the path.</p>
@@ -251,19 +358,21 @@
     }
     let currentMarked = false;
     UNITS.forEach((u) => {
-      h += `<div class="unit"><div class="unithead"><div><b>${u.title}</b><small>${u.sub}</small></div><span>${u.blurb}</span></div><div class="trail">`;
+      const gn = guideNotes(u).length;
+      h += `<div class="unit"><div class="unithead"><div class="uh1"><div><b>${u.title}</b><small>${u.sub}</small></div>${gn ? `<button class="guidebtn" data-guide="${u.id}">📘 Guide</button>` : ''}</div><span>${u.blurb}</span>${u.goal ? `<span class="goal">🎯 <i lang="nb">${u.goal[0]}</i> <em>${u.goal[1]}</em></span>` : ''}</div><div class="trail">`;
       u.lessons.forEach((l) => {
         const f = FLAT.find(x => x.lesson === l);
         const r = (p.lessons || {})[l.id];
         const open = isOpen(f.idx);
-        let cls = 'node', label = '';
+        const kind = l.spec.kind || 'ord';
+        let cls = 'node k-' + kind, label = '';
         if (r) { cls += ' done'; label = '★'.repeat(r.stars) + '☆'.repeat(3 - r.stars); }
         else if (open && !currentMarked) { cls += ' current'; currentMarked = true; label = 'Start'; }
         else if (open) { label = ''; }
         else { cls += ' locked'; label = '🔒'; }
         h += `<div class="${cls}">
-          <button class="circle" ${open ? `data-lesson="${f.idx}"` : 'disabled'} aria-label="${l.title}${open ? '' : ' (locked)'}">${r ? '✓' : l.icon}</button>
-          <div class="nlabel"><b>${l.title}</b><small>${label}</small></div></div>`;
+          <button class="circle" ${open ? `data-lesson="${f.idx}"` : 'disabled'} aria-label="${l.title}${open ? '' : ' (locked)'}">${r ? (kind === 'mester' ? '🏆' : '✓') : l.icon}</button>
+          <div class="nlabel"><span class="kind">${KIND[kind]}</span><b>${l.title}</b><small>${label}</small></div></div>`;
       });
       h += '</div></div>';
     });
@@ -271,6 +380,7 @@
     const curNode = app.querySelector('.node.current');
     if (curNode && Object.keys(p.lessons || {}).length) setTimeout(() => curNode.scrollIntoView({ block: 'center' }), 50);
     app.querySelectorAll('[data-lesson]').forEach(b => b.addEventListener('click', () => startLesson(FLAT[+b.dataset.lesson])));
+    app.querySelectorAll('[data-guide]').forEach(b => b.addEventListener('click', () => { state.guide = b.dataset.guide; go('guide'); }));
     const pr = app.querySelector('#practice');
     if (pr) pr.onclick = () => {
       const steps = reviewSteps(poolItems, 10);
@@ -278,11 +388,25 @@
     };
   }
 
+  const tagLabel = (t) => t === 'Grammar' ? '📘 Grammar' : t === 'Sounds' ? '🔊 Sounds' : t;
+  function renderGuide() {
+    const u = UNITS.find(x => x.id === state.guide) || UNITS[0];
+    const notes = guideNotes(u);
+    app.innerHTML = `<div class="runhead"><button class="linkish" id="back">← Back to the path</button><span>${u.title} · Guide</span></div>
+      <section class="card"><h1>📘 ${u.title}</h1>
+        <p class="lead">${u.sub}. The rules and sounds from this unit in one place, so you can read them again whenever you like.</p>
+        ${u.goal ? `<div class="tip">🎯 <b lang="nb">${u.goal[0]}</b> <span class="muted">${u.goal[1]}</span></div>` : ''}</section>
+      ${notes.map(n => `<section class="card note">${n.tag ? `<div class="tagbadge ${n.tag === 'Grammar' ? 'gram' : ''}">${tagLabel(n.tag)}</div>` : ''}<h2>${n.title}</h2>${n.html}</section>`).join('')}
+      <div class="row" style="justify-content:flex-end"><button class="btn" id="back2">Back to the path</button></div>`;
+    app.querySelector('#back').onclick = app.querySelector('#back2').onclick = () => go('home');
+  }
+
   /* ───────── running a lesson ───────── */
+  const EX_KINDS = ['mc', 'type', 'match', 'bank', 'slots', 'label', 'sort', 'ending', 'spot', 'memory'];
   function startLesson(f) { begin(f, buildSteps(f), false); }
   function begin(f, steps, practice) {
     const q = steps.map(s => Object.assign({ tries: 0 }, s));
-    state.run = { f, practice, q, i: 0, exTotal: q.filter(s => ['mc', 'type', 'match', 'bank'].includes(s.k)).length, first: 0 };
+    state.run = { f, practice, q, i: 0, exTotal: q.filter(s => EX_KINDS.includes(s.k)).length, first: 0 };
     go('step');
   }
 
@@ -315,11 +439,12 @@
   function renderDone() {
     const R = state.run, r = R.result;
     const nf = !R.practice && FLAT[R.f.idx + 1];
+    const mester = !R.practice && R.f.lesson.spec.kind === 'mester';
     app.innerHTML = `
       <section class="card done">
-        <div class="bigvis">🎉</div>
-        <h1 lang="nb">Bra jobbet!</h1>
-        <p class="lead">${R.practice ? 'Practice complete.' : 'Lesson complete.'} <span lang="en">(Well done!)</span></p>
+        <div class="bigvis">${mester ? '🏆' : '🎉'}</div>
+        <h1 lang="nb">${mester ? 'Mester!' : 'Bra jobbet!'}</h1>
+        <p class="lead">${R.practice ? 'Practice complete.' : mester ? 'Unit complete. <span lang="en">(You mastered it!)</span>' : 'Lesson complete.'} ${mester ? '' : '<span lang="en">(Well done!)</span>'}</p>
         ${R.practice ? '' : `<div class="stars">${'★'.repeat(r.stars)}${'☆'.repeat(3 - r.stars)}</div>`}
         <div class="stats"><span>🎯 ${Math.round(r.acc * 100)}% on the first try</span><span>⭐ +${r.xp} XP</span></div>
         <div class="row" style="justify-content:center;margin-top:18px">
@@ -330,7 +455,7 @@
       </section>`;
     const $ = (s) => app.querySelector(s);
     if ($('#nextl')) $('#nextl').onclick = () => startLesson(nf);
-    $('#again').onclick = () => R.practice ? app.querySelector('#home').click() : startLesson(R.f);
+    $('#again').onclick = () => startLesson(R.f);
     $('#home').onclick = () => go('home');
     if (R.practice) $('#again').onclick = () => {
       const poolItems = FLAT.filter(f => isDone(f.lesson.id)).flatMap(f => f.lesson.items);
@@ -352,6 +477,7 @@
   function renderStep() {
     const R = state.run;
     const s = R.q[R.i];
+    dz = null;
     if (s.k === 'note') return renderNote(R, s);
     if (s.k === 'card') return renderCard(R, s);
     if (s.k === 'grid') return renderGrid(R, s);
@@ -366,7 +492,7 @@
   function renderNote(R, s) {
     app.innerHTML = `${bar(R)}
       <section class="card note">
-        ${s.tag ? `<div class="tagbadge ${s.tag === 'Grammar' ? 'gram' : ''}">${s.tag === 'Grammar' ? '📘 Grammar' : s.tag}</div>` : ''}
+        ${s.tag ? `<div class="tagbadge ${s.tag === 'Grammar' ? 'gram' : ''}">${tagLabel(s.tag)}</div>` : ''}
         ${s.icon ? `<div class="noteicon">${s.icon}</div>` : ''}
         <h2>${s.title}</h2>${s.html}
       </section>
@@ -418,8 +544,10 @@
     setTimeout(() => { if (state.run === R && R.q[R.i] === s) speak(sayOf(it)); }, 250);
   }
 
+  /* ───────── exercises ───────── */
+  const chunkLabel = (t) => String(t).replace(/[.,!?]+$/, '');
+
   function renderExercise(R, s) {
-    const total = R.q.length;
     let body = '';
     if (s.k === 'mc') {
       s.shuf = s.shuf || shuffle(s.opts);
@@ -434,21 +562,39 @@
       s.left = s.left || shuffle(s.pairs.map(p => p[0]));
       s.right = s.right || shuffle(s.pairs.map(p => p[1]));
       body = `<div class="match">
-        <div style="display:grid;gap:10px">${s.left.map(l => `<button class="opt ${s.pics ? 'bigemo' : ''}" data-l="${esc(l)}" lang="nb">${l}</button>`).join('')}</div>
-        <div style="display:grid;gap:10px">${s.right.map(r => `<button class="opt" data-r="${esc(r)}">${r}</button>`).join('')}</div></div>`;
+        <div style="display:grid;gap:10px">${s.left.map(l => `<button class="opt dg ${s.pics ? 'bigemo' : ''}" data-l="${esc(l)}" lang="nb">${l}</button>`).join('')}</div>
+        <div style="display:grid;gap:10px">${s.right.map(r => `<button class="opt" data-r="${esc(r)}" data-drop>${r}</button>`).join('')}</div></div>`;
     } else if (s.k === 'bank') {
       s.order = s.order || shuffle(s.tiles.map((t, i) => i));
-      body = `${audioBar(s.say)}<div class="line" id="line" aria-label="Your sentence"></div><div class="tiles" id="tiles"></div>`;
+      body = `${s.big ? `<div class="bigwrap">${s.big}</div>` : ''}${audioBar(s.say)}<div class="line" id="line" data-drop aria-label="Your answer"></div><div class="tiles" id="tiles" data-drop></div>`;
+    } else if (s.k === 'slots') {
+      s.cache = s.cache || {};
+      s.cache.order = s.cache.order || shuffle(s.tiles.map((t, i) => i));
+      body = `${audioBar(s.say)}<div class="board" id="board"></div><div class="tiles" id="stiles" data-drop></div>`;
+    } else if (s.k === 'label') {
+      body = `<div class="scene" id="lscene"></div><div class="chips" id="lchips" data-drop></div>`;
+    } else if (s.k === 'sort') {
+      body = `<div class="bins" id="bins"></div><div class="chips" id="schips" data-drop></div>`;
+    } else if (s.k === 'ending') {
+      body = `<div class="erows" id="erows"></div><div class="chips" id="echips"></div>`;
+    } else if (s.k === 'spot') {
+      body = `<div class="spotline" id="spot">${s.words.map((w, i) => `<button class="spotw" data-w="${i}" lang="nb">${w}</button>`).join('')}</div>`;
+    } else if (s.k === 'memory') {
+      s.cache = s.cache || {};
+      if (!s.cache.cards) s.cache.cards = shuffle(s.pairs.flatMap((p, id) => [{ id, text: p[0], no: s.noSide === 0 }, { id, text: p[1], no: s.noSide === 1 }]));
+      body = `<div class="memgrid" id="mem">${s.cache.cards.map((c, i) => `<button class="mcard ${/^[\d]+$/.test(c.text) ? 'num' : ''}" data-m="${i}" aria-label="Card ${i + 1}"><span class="back">❄️</span><span class="front ${/[^\u0000-ɏ]/.test(c.text) ? 'emo' : ''}" lang="${c.no ? 'nb' : 'en'}">${c.text}</span></button>`).join('')}</div>`;
     }
 
+    const noCheck = s.k === 'match' || s.k === 'memory';
+    const canSkip = ['type', 'bank', 'slots'].includes(s.k);
     app.innerHTML = `${bar(R)}
       <section class="card">
         <div class="q">${s.q}</div>
         ${body}
         <div id="fb"></div>
         <div class="row" style="justify-content:flex-end">
-          ${(s.k === 'type' || s.k === 'bank') ? '<button class="linkish" id="skip" style="margin-right:auto">I do not know</button>' : ''}
-          <button class="btn" id="check" ${s.k === 'match' ? 'hidden' : 'disabled'}>Check</button>
+          ${canSkip ? '<button class="linkish" id="skip" style="margin-right:auto">I do not know</button>' : ''}
+          <button class="btn" id="check" ${noCheck ? 'hidden' : 'disabled'}>Check</button>
         </div>
       </section>`;
     wireQuit();
@@ -456,91 +602,331 @@
     const $ = (x) => app.querySelector(x);
     const fb = $('#fb'), btn = $('#check');
     let answered = false;
-    const sk = $('#skip'); if (sk) sk.onclick = () => { if (answered) return; const i = $('#ans'); if (i) { i.disabled = true; i.classList.add('wrong'); } sk.hidden = true; finish(false, s.a[0]); };
 
     const finish = (ok, correctText, near) => {
       answered = true;
       if (ok) { if (s.tries === 0) R.first++; }
-      else if (s.k !== 'match' && s.tries < 2) R.q.push(Object.assign({}, s, { tries: s.tries + 1, shuf: null, order: null }));
+      else if (!['match', 'memory'].includes(s.k) && s.tries < 2) R.q.push(Object.assign({}, s, { tries: s.tries + 1, shuf: null, order: null, cache: null }));
       fb.innerHTML = feedbackHTML(ok, s, correctText, near);
-      btn.hidden = false; btn.disabled = false; if (sk) sk.hidden = true;
+      btn.hidden = false; btn.disabled = false; const sk = $('#skip'); if (sk) sk.hidden = true;
       btn.textContent = R.i === R.q.length - 1 ? 'Finish' : 'Continue →';
       btn.onclick = next; btn.focus();
+      dz = null;
     };
+    const c = { s, R, $, btn, fb, finish, isDone: () => answered, skip: $('#skip') };
+    ({ mc: wireMC, type: wireType, match: wireMatch, bank: wireBank, slots: wireSlots, label: wireLabel, sort: wireSort, ending: wireEnding, spot: wireSpot, memory: wireMemory })[s.k](c);
+  }
 
-    if (s.k === 'mc') {
-      let sel = null;
-      const opts = [...app.querySelectorAll('.opt')];
-      opts.forEach(b => b.onclick = () => {
-        if (answered) return;
-        opts.forEach(x => { x.classList.remove('sel'); x.setAttribute('aria-checked', 'false'); });
-        b.classList.add('sel'); b.setAttribute('aria-checked', 'true');
-        sel = s.shuf[+b.dataset.i]; btn.disabled = false;
+  function wireMC(c) {
+    const { s, btn } = c;
+    let sel = null;
+    const opts = [...app.querySelectorAll('.opt')];
+    opts.forEach(b => b.onclick = () => {
+      if (c.isDone()) return;
+      opts.forEach(x => { x.classList.remove('sel'); x.setAttribute('aria-checked', 'false'); });
+      b.classList.add('sel'); b.setAttribute('aria-checked', 'true');
+      sel = s.shuf[+b.dataset.i]; btn.disabled = false;
+    });
+    btn.onclick = () => {
+      if (c.isDone() || sel === null) return;
+      opts.forEach(x => {
+        x.disabled = true;
+        const v = s.shuf[+x.dataset.i];
+        if (v === s.a) x.classList.add('right'); else if (x.classList.contains('sel')) x.classList.add('wrong');
       });
-      btn.onclick = () => {
-        if (answered || sel === null) return;
-        opts.forEach(x => {
-          x.disabled = true;
-          const v = s.shuf[+x.dataset.i];
-          if (v === s.a) x.classList.add('right'); else if (x.classList.contains('sel')) x.classList.add('wrong');
-        });
-        finish(sel === s.a, s.a);
-      };
-    } else if (s.k === 'type') {
-      const inp = $('#ans');
-      inp.focus();
-      inp.addEventListener('input', () => { btn.disabled = !inp.value.trim(); });
-      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !btn.disabled) btn.click(); });
-      app.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => {
-        if (answered) return;
-        const a = inp.selectionStart == null ? inp.value.length : inp.selectionStart;
-        const z = inp.selectionEnd == null ? inp.value.length : inp.selectionEnd;
-        inp.value = inp.value.slice(0, a) + b.dataset.ch + inp.value.slice(z);
-        inp.focus(); inp.setSelectionRange(a + 1, a + 1); btn.disabled = false;
-      });
-      btn.onclick = () => {
-        if (answered) return;
-        const val = norm(inp.value), ans = s.a.map(norm);
-        let ok = ans.includes(val), near = false;
-        if (!ok) near = ans.some(x => fold(x) === fold(val) || (val.length >= 5 && x.length >= 5 && lev(x, val) <= 1));
-        inp.disabled = true; inp.classList.add(ok || near ? 'right' : 'wrong');
-        finish(ok || near, s.a[0], near && !ok);
-      };
-    } else if (s.k === 'match') {
-      let pickL = null, mistakes = 0, done = 0;
-      const pairOf = Object.fromEntries(s.pairs.map(p => [p[0], p[1]]));
-      const lefts = [...app.querySelectorAll('[data-l]')], rights = [...app.querySelectorAll('[data-r]')];
-      lefts.forEach(b => b.onclick = () => {
-        if (answered || b.classList.contains('done')) return;
-        lefts.forEach(x => x.classList.remove('sel')); b.classList.add('sel'); pickL = b;
-        if (!s.pics) speak(b.dataset.l);
-      });
-      rights.forEach(b => b.onclick = () => {
-        if (answered || b.classList.contains('done') || !pickL) return;
-        if (pairOf[pickL.dataset.l] === b.dataset.r) {
-          pickL.classList.remove('sel'); pickL.classList.add('done'); b.classList.add('done'); pickL = null; done++;
-          if (s.pics) speak(b.dataset.r);
-          if (done === s.pairs.length) finish(mistakes === 0, s.pairs.map(p => `${p[0]} = ${p[1]}`).join(' · '));
-        } else { mistakes++; b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 500); }
-      });
-    } else if (s.k === 'bank') {
-      const chosen = [];
-      const line = $('#line'), tiles = $('#tiles');
-      const paint = () => {
-        line.innerHTML = chosen.map(i => `<button class="tile" data-un="${i}" lang="nb">${s.tiles[i]}</button>`).join('');
-        tiles.innerHTML = s.order.map(i => `<button class="tile ${chosen.includes(i) ? 'used' : ''}" data-t="${i}" lang="nb" ${chosen.includes(i) ? 'disabled' : ''}>${s.tiles[i]}</button>`).join('');
-        line.querySelectorAll('[data-un]').forEach(b => b.onclick = () => { if (!answered) { chosen.splice(chosen.indexOf(+b.dataset.un), 1); paint(); } });
-        tiles.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { if (!answered) { chosen.push(+b.dataset.t); paint(); } });
-        btn.disabled = answered || !chosen.length;
-      };
-      paint();
-      btn.onclick = () => {
-        if (answered) return;
-        const got = norm(chosen.map(i => s.tiles[i]).join(' '));
-        const ok = s.a.map(norm).includes(got);
-        finish(ok, s.a[0]);
-      };
-    }
+      c.finish(sel === s.a, s.a);
+    };
+  }
+
+  function wireType(c) {
+    const { s, btn, $ } = c;
+    const inp = $('#ans');
+    inp.focus();
+    inp.addEventListener('input', () => { btn.disabled = !inp.value.trim(); });
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !btn.disabled) btn.click(); });
+    app.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => {
+      if (c.isDone()) return;
+      const a = inp.selectionStart == null ? inp.value.length : inp.selectionStart;
+      const z = inp.selectionEnd == null ? inp.value.length : inp.selectionEnd;
+      inp.value = inp.value.slice(0, a) + b.dataset.ch + inp.value.slice(z);
+      inp.focus(); inp.setSelectionRange(a + 1, a + 1); btn.disabled = false;
+    });
+    btn.onclick = () => {
+      if (c.isDone()) return;
+      const val = norm(inp.value), ans = s.a.map(norm);
+      let ok = ans.includes(val), near = false;
+      if (!ok) near = ans.some(x => fold(x) === fold(val) || (val.length >= 5 && x.length >= 5 && lev(x, val) <= 1));
+      inp.disabled = true; inp.classList.add(ok || near ? 'right' : 'wrong');
+      c.finish(ok || near, s.a[0], near && !ok);
+    };
+    if (c.skip) c.skip.onclick = () => { if (c.isDone()) return; inp.disabled = true; inp.classList.add('wrong'); c.finish(false, s.a[0]); };
+  }
+
+  function wireMatch(c) {
+    const { s } = c;
+    let pickL = null, mistakes = 0, done = 0;
+    const pairOf = Object.fromEntries(s.pairs.map(p => [p[0], p[1]]));
+    const lefts = [...app.querySelectorAll('[data-l]')], rights = [...app.querySelectorAll('[data-r]')];
+    const select = (b) => {
+      if (c.isDone() || b.classList.contains('done')) return;
+      lefts.forEach(x => x.classList.remove('sel')); b.classList.add('sel'); pickL = b;
+      if (!s.pics) speak(b.dataset.l);
+    };
+    const pair = (l, r) => {
+      if (c.isDone() || !l || !r || l.classList.contains('done') || r.classList.contains('done')) return;
+      if (pairOf[l.dataset.l] === r.dataset.r) {
+        l.classList.remove('sel'); l.classList.add('done'); r.classList.add('done'); if (pickL === l) pickL = null; done++;
+        if (s.pics) speak(r.dataset.r);
+        if (done === s.pairs.length) c.finish(mistakes === 0, s.pairs.map(p => `${p[0]} = ${p[1]}`).join(' · '));
+      } else { mistakes++; r.classList.add('flash'); setTimeout(() => r.classList.remove('flash'), 500); }
+    };
+    rights.forEach(b => b.onclick = () => pair(pickL, b));
+    setDnd({
+      sel: '[data-l]', drop: '[data-r]',
+      onTap: select,
+      onDrop: (el, t) => { if (t) { select(el); pair(el, t); } }
+    });
+  }
+
+  /* build a sentence (or a word) from tiles; tiles can be dragged, tapped, and reordered */
+  function wireBank(c) {
+    const { s, btn, $ } = c;
+    const join = s.join === undefined ? ' ' : s.join;
+    const chosen = [];
+    const line = $('#line'), tiles = $('#tiles');
+    const cls = s.letters ? 'tile letter' : 'tile';
+    const paint = () => {
+      line.innerHTML = chosen.map(i => `<button class="${cls} dg" data-un="${i}" data-drop lang="nb">${s.tiles[i]}</button>`).join('');
+      tiles.innerHTML = s.order.map(i => `<button class="${cls} ${chosen.includes(i) ? 'used' : 'dg'}" data-t="${i}" lang="nb" ${chosen.includes(i) ? 'disabled' : ''}>${s.tiles[i]}</button>`).join('');
+      btn.disabled = c.isDone() || !chosen.length;
+    };
+    const remove = (i) => { const j = chosen.indexOf(i); if (j >= 0) chosen.splice(j, 1); };
+    paint();
+    setDnd({
+      sel: '[data-t],[data-un]', drop: '[data-un],#line,#tiles',
+      onTap: (el) => {
+        if (c.isDone()) return;
+        if (el.dataset.t !== undefined) chosen.push(+el.dataset.t); else remove(+el.dataset.un);
+        paint();
+      },
+      onDrop: (el, t) => {
+        if (c.isDone() || !t || t === el) return;
+        const fromPool = el.dataset.t !== undefined, i = +(fromPool ? el.dataset.t : el.dataset.un);
+        if (t.id === 'tiles') { if (!fromPool) remove(i); paint(); return; }
+        if (!fromPool) remove(i);
+        if (t.dataset.un !== undefined) { const j = chosen.indexOf(+t.dataset.un); chosen.splice(j < 0 ? chosen.length : j, 0, i); }
+        else chosen.push(i);
+        paint();
+      }
+    });
+    btn.onclick = () => {
+      if (c.isDone()) return;
+      const got = norm(chosen.map(i => s.tiles[i]).join(join));
+      c.finish(s.a.map(norm).includes(got), s.a[0]);
+    };
+    if (c.skip) c.skip.onclick = () => { if (!c.isDone()) c.finish(false, s.a[0]); };
+  }
+
+  /* the sentence board: numbered boxes, the verb tile is green and belongs in box 2 */
+  function wireSlots(c) {
+    const { s, btn, $ } = c;
+    const n = s.chunks.length, order = s.cache.order;
+    const put = Array(n).fill(null);
+    const paint = () => {
+      $('#board').innerHTML = put.map((v, k) => `<div class="sl ${s.v2 && k === 1 ? 'v2' : ''}" data-slot="${k}" data-drop><i>${k + 1}</i>${v !== null ? `<button class="tile dg ${s.tiles[v].verb ? 'verb' : ''}" data-p="${v}" lang="nb">${s.tiles[v].t}</button>` : ''}</div>`).join('');
+      $('#stiles').innerHTML = order.map(i => `<button class="tile ${s.tiles[i].verb ? 'verb' : ''} ${put.includes(i) ? 'used' : 'dg'}" data-c="${i}" lang="nb" ${put.includes(i) ? 'disabled' : ''}>${s.tiles[i].t}</button>`).join('');
+      btn.disabled = c.isDone() || put.some(v => v === null);
+    };
+    paint();
+    setDnd({
+      sel: '[data-c],[data-p]', drop: '[data-slot],#stiles',
+      onTap: (el) => {
+        if (c.isDone()) return;
+        if (el.dataset.c !== undefined) { const k = put.indexOf(null); if (k >= 0) put[k] = +el.dataset.c; }
+        else put[put.indexOf(+el.dataset.p)] = null;
+        paint();
+      },
+      onDrop: (el, t) => {
+        if (c.isDone() || !t) return;
+        if (el.dataset.c !== undefined) { if (t.dataset.slot !== undefined) put[+t.dataset.slot] = +el.dataset.c; }
+        else {
+          const j = put.indexOf(+el.dataset.p);
+          if (t.dataset.slot !== undefined) { const k = +t.dataset.slot; const tmp = put[k]; put[k] = put[j]; put[j] = tmp; }
+          else put[j] = null;
+        }
+        paint();
+      }
+    });
+    btn.onclick = () => {
+      if (c.isDone()) return;
+      const sl = [...app.querySelectorAll('.sl')];
+      let ok = true;
+      put.forEach((v, k) => { const good = v === k; if (!good) ok = false; sl[k].classList.add(good ? 'right' : 'wrong'); });
+      c.finish(ok, s.a[0]);
+    };
+    if (c.skip) c.skip.onclick = () => { if (!c.isDone()) c.finish(false, s.a[0]); };
+  }
+
+  /* drag each word to its picture */
+  function wireLabel(c) {
+    const { s, btn, $ } = c;
+    s.cache = s.cache || {};
+    const order = s.cache.order = s.cache.order || shuffle(s.pairs.map((p, i) => i));
+    const put = s.pairs.map(() => null);
+    let sel = null;
+    const paint = () => {
+      $('#lscene').innerHTML = s.pairs.map((p, k) => `<div class="obj"><span class="ov">${p[0]}</span><button class="lslot ${put[k] !== null ? 'full dg' : ''}" data-slot="${k}" data-drop lang="nb" aria-label="Place a word here">${put[k] !== null ? s.pairs[put[k]][1] : ''}</button></div>`).join('');
+      $('#lchips').innerHTML = order.map(i => { const used = put.includes(i); return `<button class="chip ${used ? 'used' : 'dg'} ${sel === i ? 'sel' : ''}" data-c="${i}" lang="nb" ${used ? 'disabled' : ''}>${s.pairs[i][1]}</button>`; }).join('');
+      btn.disabled = c.isDone() || put.some(v => v === null);
+    };
+    const place = (k, i) => { put[k] = i; speak(s.pairs[i][1]); };
+    paint();
+    setDnd({
+      sel: '[data-c],[data-slot]', drop: '[data-slot],#lchips',
+      canDrag: (el) => el.dataset.c !== undefined || put[+el.dataset.slot] !== null,
+      onTap: (el) => {
+        if (c.isDone()) return;
+        if (el.dataset.c !== undefined) sel = sel === +el.dataset.c ? null : +el.dataset.c;
+        else { const k = +el.dataset.slot; if (sel !== null) { place(k, sel); sel = null; } else put[k] = null; }
+        paint();
+      },
+      onDrop: (el, t) => {
+        if (c.isDone() || !t) return;
+        if (el.dataset.c !== undefined) { if (t.dataset.slot !== undefined) place(+t.dataset.slot, +el.dataset.c); }
+        else {
+          const j = +el.dataset.slot;
+          if (t.dataset.slot !== undefined) { const k = +t.dataset.slot; if (k !== j) { const tmp = put[k]; put[k] = put[j]; put[j] = tmp; } }
+          else put[j] = null;
+        }
+        sel = null; paint();
+      }
+    });
+    btn.onclick = () => {
+      if (c.isDone()) return;
+      const sl = [...app.querySelectorAll('.lslot')];
+      let ok = true;
+      put.forEach((v, k) => { const good = v === k; if (!good) ok = false; sl[k].classList.add(good ? 'right' : 'wrong'); });
+      c.finish(ok, s.pairs.map(p => `${p[0]} ${p[1]}`).join(' · '));
+    };
+  }
+
+  /* sort words into boxes (for example en / ei / et) */
+  function wireSort(c) {
+    const { s, btn, $ } = c;
+    s.cache = s.cache || {};
+    const order = s.cache.order = s.cache.order || shuffle(s.items.map((t, i) => i));
+    const put = s.items.map(() => null);
+    let sel = null;
+    const chip = (i, extra) => `<button class="chip dg ${extra || ''} ${sel === i ? 'sel' : ''}" data-c="${i}" lang="nb">${s.items[i].t}</button>`;
+    const paint = () => {
+      $('#bins').innerHTML = s.bins.map(b => `<div class="bin" data-bin="${b.id}" data-drop><div class="binh">${b.label}</div><div class="binb">${order.filter(i => put[i] === b.id).map(i => chip(i, 'placed')).join('')}</div></div>`).join('');
+      $('#schips').innerHTML = order.filter(i => put[i] === null).map(i => chip(i)).join('');
+      btn.disabled = c.isDone() || put.some(v => v === null);
+    };
+    paint();
+    setDnd({
+      sel: '[data-c],[data-bin]', drop: '[data-bin],#schips',
+      canDrag: (el) => el.dataset.c !== undefined,
+      onTap: (el) => {
+        if (c.isDone()) return;
+        if (el.dataset.c !== undefined) {
+          const i = +el.dataset.c;
+          if (put[i] !== null) { if (sel !== null) { put[sel] = put[i]; sel = null; } else put[i] = null; }
+          else sel = sel === i ? null : i;
+        } else if (sel !== null) { put[sel] = el.dataset.bin; sel = null; }
+        paint();
+      },
+      onDrop: (el, t) => {
+        if (c.isDone() || !t || el.dataset.c === undefined) return;
+        const i = +el.dataset.c;
+        put[i] = t.dataset.bin !== undefined ? t.dataset.bin : null;
+        sel = null; paint();
+      }
+    });
+    btn.onclick = () => {
+      if (c.isDone()) return;
+      let ok = true;
+      app.querySelectorAll('.bin .chip').forEach(el => { const i = +el.dataset.c; const good = put[i] === s.items[i].bin; if (!good) ok = false; el.classList.add(good ? 'right' : 'wrong'); });
+      c.finish(ok, s.items.map(it => `${plain(it.t)} → ${(s.bins.find(b => b.id === it.bin) || {}).label}`).join(' · '));
+    };
+  }
+
+  /* drag an ending onto a word; the first rows are worked examples */
+  function wireEnding(c) {
+    const { s, btn, $ } = c;
+    const put = s.rows.map(r => r.given ? r.ans : null);
+    let sel = null;
+    const lab = (v) => v === '' ? '–' : '-' + v;
+    const paint = () => {
+      $('#erows').innerHTML = s.rows.map((r, k) => `<div class="erow"><span class="esrc" lang="nb">${r.src}</span><span class="earr">→</span><span class="estem" lang="nb">${r.stem}</span><button class="eslot ${r.given ? 'given' : 'dg'} ${put[k] !== null ? 'full' : ''}" data-slot="${k}" ${r.given ? 'data-lock="1" disabled' : 'data-drop'} lang="nb" aria-label="Place an ending here">${put[k] !== null ? lab(put[k]) : ''}</button></div>`).join('');
+      $('#echips').innerHTML = s.chips.map((v, j) => `<button class="chip dg ${sel === j ? 'sel' : ''}" data-c="${j}" lang="nb">${lab(v)}</button>`).join('');
+      btn.disabled = c.isDone() || s.rows.some((r, k) => put[k] === null);
+    };
+    paint();
+    setDnd({
+      sel: '[data-c],[data-slot]', drop: '[data-slot]',
+      canDrag: (el) => el.dataset.c !== undefined || put[+el.dataset.slot] !== null,
+      onTap: (el) => {
+        if (c.isDone()) return;
+        if (el.dataset.c !== undefined) sel = sel === +el.dataset.c ? null : +el.dataset.c;
+        else { const k = +el.dataset.slot; if (sel !== null) { put[k] = s.chips[sel]; speak(s.rows[k].stem + s.chips[sel]); sel = null; } else put[k] = null; }
+        paint();
+      },
+      onDrop: (el, t) => {
+        if (c.isDone()) return;
+        if (el.dataset.c !== undefined) { if (t && t.dataset.slot !== undefined) put[+t.dataset.slot] = s.chips[+el.dataset.c]; }
+        else { const j = +el.dataset.slot; if (t && t.dataset.slot !== undefined && +t.dataset.slot !== j) { put[+t.dataset.slot] = put[j]; put[j] = null; } else if (!t) put[j] = null; }
+        sel = null; paint();
+      }
+    });
+    btn.onclick = () => {
+      if (c.isDone()) return;
+      const sl = [...app.querySelectorAll('.eslot')];
+      let ok = true;
+      s.rows.forEach((r, k) => { if (r.given) return; const good = put[k] === r.ans; if (!good) ok = false; sl[k].classList.add(good ? 'right' : 'wrong'); });
+      c.finish(ok, s.rows.filter(r => !r.given).map(r => r.stem + r.ans).join(' · '));
+    };
+  }
+
+  /* tap the word that is wrong */
+  function wireSpot(c) {
+    const { s, btn } = c;
+    const bad = [].concat(s.bad);
+    let sel = null;
+    const ws = [...app.querySelectorAll('.spotw')];
+    ws.forEach(b => b.onclick = () => {
+      if (c.isDone()) return;
+      ws.forEach(x => x.classList.remove('sel')); b.classList.add('sel'); sel = +b.dataset.w; btn.disabled = false;
+    });
+    btn.onclick = () => {
+      if (c.isDone() || sel === null) return;
+      const ok = bad.includes(sel);
+      ws.forEach((x, i) => { x.disabled = true; if (bad.includes(i)) x.classList.add('right'); else if (i === sel) x.classList.add('wrong'); });
+      c.finish(ok, s.fix);
+    };
+  }
+
+  /* flip two cards at a time and find the pairs */
+  function wireMemory(c) {
+    const { s } = c;
+    const cards = s.cache.cards;
+    const els = [...app.querySelectorAll('.mcard')];
+    let open = [], mistakes = 0, found = 0, lock = false;
+    els.forEach((b, i) => b.onclick = () => {
+      if (c.isDone() || lock || b.classList.contains('up')) return;
+      b.classList.add('up');
+      if (cards[i].no) speak(cards[i].text);
+      open.push(i);
+      if (open.length < 2) return;
+      const [a, z] = open; open = [];
+      if (cards[a].id === cards[z].id) {
+        els[a].classList.add('gone'); els[z].classList.add('gone'); found++;
+        if (found === s.pairs.length) setTimeout(() => c.finish(mistakes <= s.pairs.length, s.pairs.map(p => `${p[0]} = ${p[1]}`).join(' · ')), 350);
+      } else {
+        mistakes++; lock = true;
+        setTimeout(() => { els[a].classList.remove('up'); els[z].classList.remove('up'); lock = false; }, 850);
+      }
+    });
   }
 
   /* ───────── header / footer ───────── */
@@ -617,6 +1003,6 @@
     })(0);
   })();
 
-  window.__norsk = { state };
+  window.__norsk = { state, FLAT, render };
   render();
 })();

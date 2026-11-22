@@ -33,6 +33,22 @@
     tiles: answer.replace(/[.,!?]/g, '').split(/\s+/).concat(extra || []), why
   });
   const match = (q, pairs, why) => ({ k: 'match', q, pairs, why });
+  const SND = (title, html) => [title, html, 'Sounds'];
+
+  /* drag the pieces of a sentence into numbered boxes. chunks are given in the CORRECT order,
+     verb = index of the verb (shown green). extra = wrong pieces that do not belong. */
+  const slots = (q, chunks, verb, extra, why) => ({
+    k: 'slots', q, chunks, v2: verb === 1,
+    tiles: chunks.map((t, i) => ({ t, verb: i === verb })).concat((extra || []).map(t => ({ t, verb: false }))),
+    a: [chunks.join(' ')], say: chunks.join(' ').replace(/[?.!,]/g, ''), why
+  });
+  /* tap the wrong word. bad = index (or indices) of the word(s) that are wrong. */
+  const spot = (q, words, bad, fix, why) => ({ k: 'spot', q, words, bad, fix, why: why || `Correct: <b lang="nb">${fix}</b>` });
+  /* sort words into boxes. bins: [{id,label}], items: [{t,bin}] */
+  const sortEx = (q, bins, items, why) => ({ k: 'sort', q, bins, items, why });
+  /* drag an ending onto a word. rows: [{src,stem,ans,given?}], chips: endings to choose from */
+  const ending = (q, rows, chips, why) => ({ k: 'ending', q, rows, chips, why });
+  const label = (q, pairs, why) => ({ k: 'label', q, pairs, why });
 
   /* lesson spec → lesson. groups: items are taught (cards) in small groups, each followed by practice. */
   function lesson(id, title, icon, spec) {
@@ -74,7 +90,7 @@
 <p><b>2.</b> Then you practise them: listening, matching, typing, and building sentences.</p>
 <p><b>3.</b> Mistakes come back at the end of the lesson.</p>
 <p><b>4.</b> Little notes explain how the language works, in plain English.</p>
-<p>The first unit is the <b>alphabet</b>. Then we count, greet people, and learn our first words. Let us warm up with a few words you just met.</p>`),
+<p>The path starts with <b>greetings and politeness</b>, because that is what you need first. After that come the alphabet and sounds, numbers, and your first nouns. Each unit has a 📘 <b>Guide</b> button with its rules in one place. Let us warm up with a few words you just met.</p>`),
           match('Match the Norwegian words with their English meaning.', [['hus', 'house'], ['bok', 'book'], ['fisk', 'fish'], ['vinter', 'winter']], 'These words are close relatives of the English ones.'),
           { k: 'mc', say: 'hånd', q: 'Tap what you hear.', opts: ['hånd', 'fot', 'fisk', 'hus'], a: 'hånd', why: 'That was <b>hånd</b>, “hand”.' },
           mc('Which is the Norwegian word for <b>“foot”</b>?', ['fot', 'hånd', 'bok', 'vinter'], 'fot', '<b>fot</b> means “foot”.')
@@ -201,8 +217,8 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
         ],
         extra: () => [
           mc('The vowel before a <b>double consonant</b> is…', ['short', 'long', 'silent', 'stressed'], 'short', 'Double consonant → short vowel. That is why <i>takk</i> has a short <b>a</b>.'),
-          mc('Which word has a <b>long</b> vowel?', ['tak', 'takk', 'matt', 'hatt'], 'tak', '<i>tak</i> has one consonant after the vowel, so the <b>a</b> is long.'),
-          mc('Which word has a <b>short</b> vowel?', ['matt', 'mat', 'tak', 'hat'], 'matt', '<i>matt</i> has a double <b>t</b>, so the <b>a</b> is short.'),
+          mc('Which word has a <b>long</b> vowel?', ['tak', 'takk', 'matt'], 'tak', '<i>tak</i> has one consonant after the vowel, so the <b>a</b> is long.'),
+          mc('Which word has a <b>short</b> vowel?', ['matt', 'mat', 'tak'], 'matt', '<i>matt</i> has a double <b>t</b>, so the <b>a</b> is short.'),
           note('Where is the stress?', `
 <p>In most Norwegian words, you say the <b>first syllable</b> a little louder and longer. A <b>syllable</b> is one “beat” of a word: <i>hus</i> has one, <i>sykkel</i> (bicycle) has two (syk-kel).</p>
 <p>Listen: ${W('sykkel', 'bicycle')} ${W('norsk', 'Norwegian')} ${W('vinter', 'winter')}</p>
@@ -241,7 +257,7 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
           { pre: ['Nineteen and twenty', `<p><b>tjue</b> begins with <b>tj</b>, which sounds like the soft “h” of <i>kino</i>. You can also write it <i>tyve</i>.</p>`], items: [NUM('nitten', 19, 'nineteen'), Object.assign(NUM('tjue', 20, 'twenty', '<b>tj</b> is a soft <i>h</i>: “hyoo-eh”. Also written <i>tyve</i>.'), { alt: ['tyve'] })] }
         ]
       }),
-      lesson('u3l5', 'Number practice', '🎯', { review: 'num', groups: [] })
+      lesson('u3l5', 'Number mix', '🎯', { review: 'num', groups: [] })
     ]
   };
 
@@ -268,7 +284,7 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
             items: [I('jeg', 'I', '🙋', { tip: '<b>jeg</b> is said “yai”. The <b>g</b> is silent.' }), I('du', 'you', '👉'), I('heter', 'am called; is called', '🏷️', { tip: 'A <b>verb</b> is an action or state word. <b>heter</b> does not change: <i>jeg heter</i>, <i>du heter</i>.' })]
           },
           {
-            pre: ['Your first questions', `<p>You already know <b>hva</b> (what), which is said “va”. So <i>Hva heter du?</i> means “What are you called?”, or “What is your name?”.</p>`],
+            pre: ['Your first questions', `<p><b>Hva</b> means “what”. It is said “va”, because the <b>h</b> is silent. So <i>Hva heter du?</i> means “What are you called?”, or “What is your name?”.</p>`],
             items: [I('Hva heter du?', 'What is your name?', '❓'), I('Jeg heter Anna.', 'My name is Anna.', '🙂', { say: 'Jeg heter Anna' }), I('Hyggelig å møte deg.', 'Nice to meet you.', '🤝')],
             post: GR('Questions turn the words around', `<p>In a question, the verb jumps in front of the person word.</p>
 <div class="rule" lang="nb"><b>Du heter</b> Anna. → <b>Heter du</b> Anna?</div>
@@ -426,7 +442,7 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
 
   /* ───────── extra lessons ───────── */
   u4.blurb = 'Politeness first: greetings, thanks and your name.';
-  u4.lessons.push(lesson('u4l5', 'Mastery: meet someone', '🎯', {
+  u4.lessons.push(lesson('u4l5', 'Meet someone', '🎯', {
     groups: [],
     build: () => [
       note('Put it all together', '<p>Now you will <b>use</b> what you know in a real conversation. Pick what you would say, and say it out loud.</p>', '🎯'),
@@ -474,7 +490,7 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
     })
   );
 
-  u6.lessons.push(lesson('u6l4', 'Mastery: the and plural', '🎯', {
+  u6.lessons.push(lesson('u6l4', 'Mix: the and plural', '🎯', {
     groups: [], review: true,
     note: '<p>A mix of <b>the</b> and <b>more than one</b>. Remember: <b>en → -en</b>, <b>et → -et</b>, <b>ei → -a</b>, plural <b>-er</b>, and “the” plural <b>-ene</b>. Say each answer out loud.</p>'
   }));
@@ -506,7 +522,7 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
         }],
         extra: () => [bank('Build: “Where does the train go?”', 'Hvor går toget?', ['er', 'bussen'], 'Hvor går toget?'), mc('Which sentence is correct?', ['Hvor går bussen?', 'Hvor bussen går?', 'Går hvor bussen?'], 'Hvor går bussen?', 'The verb is always the <b>second</b> piece in a question with a question word.')]
       }),
-      lesson('uTl4', 'Mastery: on the way', '🎯', {
+      lesson('uTl4', 'On the way', '🎯', {
         groups: [],
         build: () => [
           note('Use it for real', '<p>You are at the bus stop. Choose what you would say.</p>', '🎯'),
@@ -552,7 +568,7 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
         }],
         extra: () => [bank('Build: “Today it is cold.”', 'I dag er det kaldt.', ['snør', 'varmt'], 'I dag <b>er</b> det kaldt: the verb stays second.'), mc('Which sentence is correct?', ['I dag er det kaldt.', 'I dag det er kaldt.', 'Er I dag det kaldt.'], 'I dag er det kaldt.', 'The verb comes in <b>second</b> place, right after <b>i dag</b>.')]
       }),
-      lesson('uWl4', 'Mastery: small talk', '🎯', {
+      lesson('uWl4', 'Weather small talk', '🎯', {
         groups: [],
         build: () => [
           note('Weather small talk', '<p>Talking about the weather is the classic way to start a conversation in Norway.</p>', '🎯'),
@@ -597,7 +613,7 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
         }],
         extra: () => [{ k: 'mc', say: 'Det koster tjue kroner', q: 'How much does it cost? Tap the price.', opts: ['10 kr', '20 kr', '12 kr'], a: '20 kr', why: '<b>tjue</b> = 20.' }, bank('Build: “How much is it?”', 'Hva koster det?', ['er', 'vil'], 'Hva koster det?')]
       }),
-      lesson('uMl5', 'Mastery: at the café', '🎯', {
+      lesson('uMl5', 'At the café', '🎯', {
         groups: [],
         build: () => [
           note('Order at the café', '<p>You are at the counter. The new question here is <b lang="nb">Hva vil du ha?</b>, “What would you like?”. Choose what you say.</p>', '🎯'),
@@ -699,7 +715,7 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
           bank('Build: “Is it your house?”', 'Er det huset ditt?', ['hus', 'din'], 'Er det <b>huset ditt</b>?')
         ]
       }),
-      lesson('u7l5', 'Mastery: mine and yours', '🎯', {
+      lesson('u7l5', 'Mine and yours', '🎯', {
         groups: [],
         build: () => [
           note('Show what you can do', '<p>A conversation about things that belong to you. Choose the best reply.</p>', '🎯'),
@@ -781,7 +797,7 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
           bank('Build: “I do not like fish.”', 'Jeg liker ikke fisk.', ['du', 'har'], '<b>ikke</b> comes after the verb.')
         ]
       }),
-      lesson('u8l5', 'Mastery: a first chat', '🎯', {
+      lesson('u8l5', 'A first chat', '🎯', {
         groups: [],
         build: () => [
           note('Your first real conversation', '<p>Everything comes together here: greeting, name, where you are from, languages, likes. Choose what you would say.</p>', '🎯'),
@@ -797,5 +813,105 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
     ]
   };
 
-  window.UNITS = [u1, u4, u2, u3, u5, u6, uT, uW, uM, u7, u8];
+  /* ───────── sound notes are tagged for the Guide ───────── */
+  u2.lessons.forEach(l => (l.spec.groups || []).forEach(g => ['pre', 'post'].forEach(k => {
+    if (Array.isArray(g[k]) && g[k].length === 2) g[k] = [g[k][0], g[k][1], 'Sounds'];
+  })));
+
+  /* ───────── extra practice added to existing lessons ───────── */
+  const addExtra = (u, id, fn) => {
+    const sp = u.lessons.find(l => l.id === id).spec;
+    const old = sp.extra;
+    sp.extra = () => (old ? old() : []).concat(fn());
+  };
+  addExtra(u4, 'u4l3', () => [
+    slots('Put the words in order: “What is your name?”', ['Hva', 'heter', 'du?'], 1, [], 'Question word first, verb second, person third.'),
+    slots('Put the words in order: “Is your name Anna?”', ['Heter', 'du', 'Anna?'], 0, ['hva'], 'In a yes/no question the verb comes first.')
+  ]);
+  addExtra(u4, 'u4l4', () => [slots('Put the words in order: “How are you?”', ['Hvordan', 'har', 'du', 'det?'], 1, [], 'Question word first, verb second.')]);
+  addExtra(u5, 'u5l4', () => [sortEx('Which little word does each noun use? Drag it into the right box.',
+    [{ id: 'en', label: 'en' }, { id: 'ei', label: 'ei' }, { id: 'et', label: 'et' }],
+    [{ t: 'mann', bin: 'en' }, { t: 'dame', bin: 'ei' }, { t: 'stol', bin: 'en' }, { t: 'vindu', bin: 'et' }, { t: 'jakke', bin: 'ei' }, { t: 'hus', bin: 'et' }],
+    'en mann · ei dame · en stol · et vindu · ei jakke · et hus. (<i>en dame</i> and <i>en jakke</i> are also correct in Bokmål.)')]);
+  addExtra(u6, 'u6l1', () => [ending('Drag the right ending onto each word. The first one is done for you.',
+    [{ src: 'en bil', stem: 'bil', ans: 'en', given: true }, { src: 'et hus', stem: 'hus', ans: 'et' }, { src: 'en hund', stem: 'hund', ans: 'en' }, { src: 'ei jente', stem: 'jent', ans: 'a' }],
+    ['en', 'a', 'et'], 'bilen · huset · hunden · jenta')]);
+  addExtra(u6, 'u6l2', () => [ending('Make the plural. Drag the ending onto each word. The first one is done for you.',
+    [{ src: 'en bil', stem: 'bil', ans: 'er', given: true }, { src: 'en katt', stem: 'katt', ans: 'er' }, { src: 'et hus', stem: 'hus', ans: '' }, { src: 'en stol', stem: 'stol', ans: 'er' }],
+    ['er', '', 'ene'], 'biler · katter · hus (neuter words do not change) · stoler')]);
+  addExtra(uT, 'uTl3', () => [slots('Put the words in order: “Where does the bus go?”', ['Hvor', 'går', 'bussen?'], 1, [], 'Question word first, verb second.')]);
+  addExtra(uW, 'uWl3', () => [
+    slots('Start with “I dag”: “Today it is cold.”', ['I dag', 'er', 'det', 'kaldt.'], 1, [], 'The verb stays in second place.'),
+    spot('Find the mistake.', ['I dag', 'det', 'er', 'kaldt.'], [1, 2], 'I dag er det kaldt.', 'The verb has to be the <b>second</b> piece: <b>I dag er det kaldt.</b>')
+  ]);
+  addExtra(u7, 'u7l3', () => [spot('Find the mistake.', ['Dette', 'er', 'min', 'katten.'], [2, 3], 'Dette er katten min. (or: Dette er min katt.)', 'Use <b>either</b> <i>min katt</i> <b>or</b> <i>katten min</i>, never both.')]);
+  addExtra(u8, 'u8l1', () => [slots('Put the words in order: “Where are you from?”', ['Hvor', 'er', 'du', 'fra?'], 1, [], 'Question word first, verb second.')]);
+  addExtra(u8, 'u8l3', () => [spot('Find the mistake.', ['Jeg', 'ikke', 'har', 'katt.'], [1, 2], 'Jeg har ikke katt.', '<b>ikke</b> comes right <b>after</b> the verb.')]);
+
+  /* ───────── a Mester lesson closes each unit: mixed practice with older words and phrases ───────── */
+  const mester = (u, id, title, note, mix) => u.lessons.push(lesson(id, title, '🏆', { groups: [], mester: true, note, mix }));
+  mester(u4, 'u4l6', 'Mester: Hei!', '<p>A mix of greetings and politeness, with some older words too. Say every answer out loud.</p>', () => [
+    slots('Put the words in order: “What is your name?”', ['Hva', 'heter', 'du?'], 1),
+    slots('Put the words in order: “How are you?”', ['Hvordan', 'har', 'du', 'det?'], 1)
+  ]);
+  mester(u2, 'u2l7', 'Mester: sounds', '<p>A mix of the words and sounds from this unit. Listen closely, and say each word out loud.</p>');
+  mester(u5, 'u5l8', 'Mester: first words', '<p>All the nouns and sentences from this unit, mixed. Remember: <b>always learn the little word with the noun</b>.</p>', () => [
+    sortEx('Drag each noun to its little word.', [{ id: 'en', label: 'en' }, { id: 'ei', label: 'ei' }, { id: 'et', label: 'et' }],
+      [{ t: 'bil', bin: 'en' }, { t: 'bok', bin: 'ei' }, { t: 'hus', bin: 'et' }, { t: 'hund', bin: 'en' }, { t: 'seng', bin: 'ei' }, { t: 'tre', bin: 'et' }],
+      'en bil · ei bok · et hus · en hund · ei seng · et tre'),
+    spot('Find the mistake.', ['Dette', 'er', 'et', 'bil.'], [2, 3], 'Dette er en bil.', 'bil is an <b>en</b> word: <b>en bil</b>.')
+  ]);
+  mester(uT, 'uTl5', 'Mester: transport', '<p>A mix of transport words and phrases, with some older material too.</p>', () => [
+    slots('Put the words in order: “Where does the train go?”', ['Hvor', 'går', 'toget?'], 1),
+    spot('Find the mistake.', ['Jeg', 'bussen', 'tar.'], [1, 2], 'Jeg tar bussen.', 'The verb stays in <b>second</b> place: <b>Jeg tar bussen.</b>')
+  ]);
+  mester(uW, 'uWl5', 'Mester: weather', '<p>A mix of weather words and phrases. Remember: <b>the verb is always second</b>.</p>', () => [
+    slots('Start with “I dag”: “Today it is snowing.”', ['I dag', 'snør', 'det.'], 1),
+    spot('Find the mistake.', ['I dag', 'det', 'regner.'], [1], 'I dag regner det.', 'The verb comes second: <b>I dag regner det.</b>')
+  ]);
+  mester(uM, 'uMl6', 'Mester: food', '<p>A mix of food, drinks and ordering phrases.</p>', () => [
+    slots('Put the words in order: “I would like a coffee, please.”', ['Jeg', 'vil', 'ha', 'en kaffe,', 'takk.'], 1),
+    spot('Find the mistake.', ['Jeg', 'vil', 'en kaffe,', 'ha', 'takk.'], [2, 3], 'Jeg vil ha en kaffe, takk.', 'After <b>vil</b> comes <b>ha</b>: <b>Jeg vil ha en kaffe, takk.</b>')
+  ]);
+  mester(u7, 'u7l6', 'Mester: min og din', '<p>A mix of <b>my</b> and <b>your</b>, in both word orders.</p>', () => [
+    sortEx('Which word for “my” fits each noun?', [{ id: 'min', label: 'min' }, { id: 'mi', label: 'mi' }, { id: 'mitt', label: 'mitt' }],
+      [{ t: 'katt', bin: 'min' }, { t: 'bok', bin: 'mi' }, { t: 'hus', bin: 'mitt' }, { t: 'hund', bin: 'min' }, { t: 'eple', bin: 'mitt' }, { t: 'klokke', bin: 'mi' }],
+      'min katt · mi bok · mitt hus · min hund · mitt eple · mi klokke'),
+    spot('Find the mistake.', ['Dette', 'er', 'min', 'katten.'], [2, 3], 'Dette er katten min.', 'Use <b>either</b> <i>min katt</i> <b>or</b> <i>katten min</i>.')
+  ]);
+  mester(u8, 'u8l6', 'Mester: about me', '<p>A mix of everything you can say about yourself.</p>', () => [
+    slots('Put the words in order: “Where are you from?”', ['Hvor', 'er', 'du', 'fra?'], 1),
+    spot('Find the mistake.', ['Jeg', 'ikke', 'liker', 'fisk.'], [1, 2], 'Jeg liker ikke fisk.', '<b>ikke</b> comes right after the verb.')
+  ]);
+
+  /* ───────── the shape of each unit: kinds of lesson, and a goal ───────── */
+  const KINDS = {
+    u1l1: 'intro',
+    u4l1: 'ord', u4l2: 'ord', u4l3: 'bruk', u4l4: 'ord', u4l5: 'samtale', u4l6: 'mester',
+    u2l1: 'ord', u2l2: 'ord', u2l3: 'ord', u2l4: 'ord', u2l5: 'ord', u2l6: 'bruk', u2l7: 'mester',
+    u3l1: 'ord', u3l2: 'ord', u3l3: 'ord', u3l4: 'ord', u3l5: 'mester',
+    u5l1: 'ord', u5l2: 'ord', u5l3: 'ord', u5l4: 'ord', u5l6: 'bruk', u5l7: 'bruk', u5l8: 'mester',
+    u6l1: 'bruk', u6l2: 'bruk', u6l3: 'bruk', u6l4: 'mester',
+    uTl1: 'ord', uTl2: 'bruk', uTl3: 'bruk', uTl4: 'samtale', uTl5: 'mester',
+    uWl1: 'bruk', uWl2: 'bruk', uWl3: 'bruk', uWl4: 'samtale', uWl5: 'mester',
+    uMl1: 'ord', uMl2: 'ord', uMl3: 'bruk', uMl4: 'ord', uMl5: 'samtale', uMl6: 'mester',
+    u7l1: 'bruk', u7l2: 'bruk', u7l3: 'bruk', u7l4: 'bruk', u7l5: 'samtale', u7l6: 'mester',
+    u8l1: 'bruk', u8l2: 'bruk', u8l3: 'bruk', u8l4: 'bruk', u8l5: 'samtale', u8l6: 'mester'
+  };
+  const GOALS = {
+    u4: ['Jeg kan hilse og presentere meg.', 'I can greet people and introduce myself.'],
+    u2: ['Jeg kan lese norske ord høyt.', 'I can read Norwegian words out loud.'],
+    u3: ['Jeg kan telle til tjue.', 'I can count to twenty.'],
+    u5: ['Jeg kan si hva ting heter.', 'I can name things, with en, ei or et.'],
+    u6: ['Jeg kan si «bilen» og «bilene».', 'I can say “the car” and “the cars”.'],
+    uT: ['Jeg kan si hvordan jeg reiser.', 'I can say how I travel.'],
+    uW: ['Jeg kan snakke om været.', 'I can talk about the weather.'],
+    uM: ['Jeg kan bestille noe å spise.', 'I can order food and drink.'],
+    u7: ['Jeg kan si hva som er mitt og ditt.', 'I can say what is mine and yours.'],
+    u8: ['Jeg kan snakke litt om meg selv.', 'I can talk a little about myself.']
+  };
+  const ALL = [u1, u4, u2, u3, u5, u6, uT, uW, uM, u7, u8];
+  ALL.forEach(u => { if (GOALS[u.id]) u.goal = GOALS[u.id]; u.lessons.forEach(l => { l.spec.kind = KINDS[l.id] || 'ord'; }); });
+
+  window.UNITS = ALL;
 })();
