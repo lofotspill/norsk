@@ -16,6 +16,71 @@
   const isDone = (id) => !!(load().lessons || {})[id];
   const isOpen = (i) => i === 0 || isDone(FLAT[i - 1].lesson.id) || isDone(FLAT[i].lesson.id);
 
+  /* ───────── progress code: save, restore, and share with a teacher ─────────
+     The code holds the stars and XP, nothing personal. It can be pasted back in on any device. */
+  const checksum = (t) => { let h = 7; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) % 46656; return h.toString(36).padStart(3, '0'); };
+  const b64 = (t) => btoa(t).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const unb64 = (t) => atob(t.replace(/-/g, '+').replace(/_/g, '/'));
+  function makeCode() {
+    const p = load();
+    const body = Object.keys(p.lessons || {}).filter(id => FLAT.some(f => f.lesson.id === id))
+      .map(id => `${id}.${p.lessons[id].stars}.${Math.round((p.lessons[id].acc || 0) * 100)}`).join(',') + '|' + (p.xp || 0);
+    const b = b64(body);
+    return 'NO1-' + b + '-' + checksum(b);
+  }
+  function readCode(raw) {
+    const t = String(raw || '').replace(/\s+/g, '');
+    const m = /^NO1-([A-Za-z0-9_-]*)-([0-9a-z]{3})$/.exec(t);
+    if (!m || checksum(m[1]) !== m[2]) return null;
+    try {
+      const [ls, xp] = unb64(m[1]).split('|');
+      const lessons = {};
+      (ls ? ls.split(',') : []).forEach(x => {
+        const [id, st, ac] = x.split('.');
+        if (FLAT.some(f => f.lesson.id === id) && +st >= 1 && +st <= 3) lessons[id] = { stars: +st, acc: Math.min(1, (+ac || 0) / 100) };
+      });
+      return { lessons, xp: Math.max(0, +xp || 0) };
+    } catch (e) { return null; }
+  }
+  function restore(raw) {
+    const r = readCode(raw);
+    if (!r) return false;
+    const p = load();
+    p.lessons = p.lessons || {};
+    Object.keys(r.lessons).forEach(id => {
+      const o = p.lessons[id];
+      p.lessons[id] = o ? { stars: Math.max(o.stars, r.lessons[id].stars), acc: Math.max(o.acc || 0, r.lessons[id].acc) } : r.lessons[id];
+    });
+    p.xp = Math.max(p.xp || 0, r.xp);
+    save(p);
+    return true;
+  }
+  const SHARE = 'norsk123.share', QUEUE = 'norsk123.queue';
+  const jget = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
+  const jset = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* ignore */ } };
+  const formCfg = () => { const c = window.NORSK_FORM; return c && c.url && c.fields ? c : null; };
+  function flushQueue() {
+    const c = formCfg(); if (!c) return;
+    const q = jget(QUEUE, []);
+    if (!q.length) return;
+    jset(QUEUE, []);
+    q.forEach(item => {
+      const body = new URLSearchParams();
+      Object.keys(c.fields).forEach(k => { if (c.fields[k] && item[k] !== undefined) body.append(c.fields[k], item[k]); });
+      try {
+        fetch(c.url, { method: 'POST', mode: 'no-cors', body }).catch(() => { const n = jget(QUEUE, []); n.push(item); jset(QUEUE, n.slice(-30)); });
+      } catch (e) { const n = jget(QUEUE, []); n.push(item); jset(QUEUE, n.slice(-30)); }
+    });
+  }
+  function shareProgress(lesson, stars, acc, xp) {
+    const sh = jget(SHARE, null), c = formCfg();
+    if (!c || !sh || !sh.on || !sh.name) return;
+    const q = jget(QUEUE, []);
+    q.push({ name: sh.name, lesson: lesson.title + ' (' + lesson.id + ')', stars: String(stars), acc: String(Math.round(acc * 100)), xp: String(xp), time: new Date().toISOString(), code: makeCode() });
+    jset(QUEUE, q.slice(-30));
+    flushQueue();
+  }
+
   /* ───────── speech ───────── */
   let voice = null;
   const hasTTS = 'speechSynthesis' in window;
@@ -353,6 +418,16 @@
     }
     const poolItems = FLAT.filter(f => isDone(f.lesson.id)).flatMap(f => f.lesson.items);
     const uniq = new Set(poolItems.map(i => i.no));
+    const fc = formCfg(), sh = jget(SHARE, { on: false, name: '' });
+    h += `<details class="card codecard" id="codecard"><summary>💾 Save or restore my progress</summary>
+      <p class="muted">Your progress is saved on this device. To keep it safe, or to move it to another device, copy your <b>progress code</b>. Paste a code below to get your stars and XP back.</p>
+      <div class="coderow"><input class="ans" id="mycode" readonly aria-label="Your progress code" value="${esc(makeCode())}"><button class="btn ghost" id="copycode">Copy</button></div>
+      <div class="coderow"><input class="ans" id="incode" placeholder="Paste a progress code here" aria-label="Paste a progress code" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn" id="usecode">Restore</button></div>
+      <div id="codemsg" class="codemsg" role="status"></div>
+      ${fc ? `<hr class="soft"><label class="sharerow"><input type="checkbox" id="shareon" ${sh.on ? 'checked' : ''}> <span>Share my progress with my teacher after each lesson</span></label>
+      <div class="coderow"><input class="ans" id="sharename" placeholder="Your name or nickname" aria-label="Your name or nickname" value="${esc(sh.name || '')}" maxlength="40"></div>
+      <p class="muted small">Only your name, the lesson, your stars and your progress code are sent. You can switch this off at any time.</p>` : ''}
+    </details>`;
     if (uniq.size >= 8) {
       h += `<button class="mod practice" id="practice"><span class="num">🔁</span><span class="info"><b>Practice</b><small>A quick mixed review of what you have learned</small></span></button>`;
     }
@@ -381,6 +456,22 @@
     if (curNode && Object.keys(p.lessons || {}).length) setTimeout(() => curNode.scrollIntoView({ block: 'center' }), 50);
     app.querySelectorAll('[data-lesson]').forEach(b => b.addEventListener('click', () => startLesson(FLAT[+b.dataset.lesson])));
     app.querySelectorAll('[data-guide]').forEach(b => b.addEventListener('click', () => { state.guide = b.dataset.guide; go('guide'); }));
+    const msg = (t, ok) => { const m = app.querySelector('#codemsg'); m.textContent = t; m.className = 'codemsg ' + (ok ? 'ok' : 'no'); };
+    app.querySelector('#copycode').onclick = () => {
+      const v = app.querySelector('#mycode').value;
+      const done = () => msg('Code copied.', true);
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(done, () => { app.querySelector('#mycode').select(); msg('Select the code and copy it.', true); });
+      else { app.querySelector('#mycode').select(); msg('Select the code and copy it.', true); }
+    };
+    app.querySelector('#usecode').onclick = () => {
+      if (restore(app.querySelector('#incode').value)) { document.getElementById('codecard').dataset.open = '1'; render(); const d = app.querySelector('#codecard'); d.open = true; const m = app.querySelector('#codemsg'); m.textContent = 'Done! Your progress is back.'; m.className = 'codemsg ok'; setTimeout(() => d.scrollIntoView({ block: 'center' }), 120); }
+      else msg('That code does not look right. Check that you pasted all of it.', false);
+    };
+    const so = app.querySelector('#shareon'), sn = app.querySelector('#sharename');
+    if (so) {
+      const upd = () => { const on = so.checked && !!sn.value.trim(); jset(SHARE, { on: so.checked, name: sn.value.trim() }); if (so.checked && !sn.value.trim()) msg('Write your name or nickname so your teacher knows who you are.', false); else if (on) msg('Sharing is on.', true); else msg('Sharing is off.', true); };
+      so.onchange = upd; sn.onchange = upd;
+    }
     const pr = app.querySelector('#practice');
     if (pr) pr.onclick = () => {
       const steps = reviewSteps(poolItems, 10);
@@ -433,6 +524,7 @@
     }
     save(p);
     R.result = { acc, stars, xp };
+    if (!R.practice) shareProgress(R.f.lesson, stars, acc, p.xp);
     go('done');
   }
 
@@ -1003,6 +1095,7 @@
     })(0);
   })();
 
-  window.__norsk = { state, FLAT, render };
+  window.__norsk = { state, FLAT, render, makeCode, readCode, restore };
   render();
+  flushQueue();
 })();

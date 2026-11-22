@@ -466,3 +466,14 @@ html[data-theme="dark"] .over{background:rgba(74,147,201,.25)!important}
 html[data-theme="dark"] .node.k-mester .circle{border-color:#d9a63a}
 .tile.verb.used,.chip.used{background:transparent!important;border-style:dashed;box-shadow:none!important}
 html[data-theme="dark"] .tile.verb.used{background:transparent!important;border-color:rgba(160,195,230,.28)}
+
+/* progress code */
+.codecard summary{cursor:pointer;font-weight:700;color:var(--blue-d)}
+.codecard[open] summary{margin-bottom:10px}
+.coderow{display:flex;gap:10px;align-items:center;margin:10px 0;flex-wrap:wrap}
+.coderow .ans{flex:1;min-width:160px;max-width:none;font-size:.9rem}
+.codemsg{min-height:1.4em;font-size:.95rem}
+.codemsg.ok{color:var(--ok)}.codemsg.no{color:var(--bad)}
+hr.soft{border:0;border-top:1px solid rgba(90,120,150,.2);margin:14px 0}
+.sharerow{display:flex;gap:10px;align-items:center}
+.small{font-size:.85rem}
