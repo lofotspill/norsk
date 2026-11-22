@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Norsk på 1·2·3</title>
+<meta name="description" content="Learn Norwegian (Bokmål) step by step, with explanations in English.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9D%84%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<canvas id="snow" aria-hidden="true"></canvas>
+
+<svg class="drift" aria-hidden="true" viewBox="0 0 1440 220" preserveAspectRatio="none">
+  <path d="M0 120 C 220 40, 420 150, 700 100 C 980 50, 1180 140, 1440 70 L1440 220 L0 220 Z" fill="#ffffff" opacity=".75"/>
+  <path d="M0 160 C 260 110, 520 190, 800 150 C 1060 112, 1260 180, 1440 140 L1440 220 L0 220 Z" fill="#ffffff"/>
+</svg>
+
+<svg class="snowman" aria-hidden="true" viewBox="0 0 200 300" role="presentation">
+  <defs>
+    <radialGradient id="sg" cx="35%" cy="30%" r="80%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dbe8f3"/>
+    </radialGradient>
+  </defs>
+  <ellipse cx="100" cy="288" rx="80" ry="9" fill="#9db9d1" opacity=".35"/>
+  <path d="M52 168 L18 142 M18 142 L8 146 M18 142 L14 130" stroke="#7a5c43" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M148 168 L182 142 M182 142 L192 146 M182 142 L186 130" stroke="#7a5c43" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <circle cx="100" cy="226" r="60" fill="url(#sg)" stroke="#b6cadc" stroke-width="2"/>
+  <circle cx="100" cy="150" r="44" fill="url(#sg)" stroke="#b6cadc" stroke-width="2"/>
+  <circle cx="100" cy="92" r="31" fill="url(#sg)" stroke="#b6cadc" stroke-width="2"/>
+  <rect x="66" y="112" width="68" height="13" rx="6" fill="#c9514f"/>
+  <rect x="116" y="118" width="14" height="34" rx="5" fill="#c9514f"/>
+  <circle cx="90" cy="86" r="3.2" fill="#33445a"/>
+  <circle cx="110" cy="86" r="3.2" fill="#33445a"/>
+  <path d="M100 94 L128 99 L100 103 Z" fill="#e8893b"/>
+  <path d="M90 104 q10 7 20 0" stroke="#33445a" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <circle cx="100" cy="146" r="3.4" fill="#33445a"/>
+  <circle cx="100" cy="164" r="3.4" fill="#33445a"/>
+  <circle cx="100" cy="206" r="3.8" fill="#33445a"/>
+  <circle cx="100" cy="228" r="3.8" fill="#33445a"/>
+  <rect x="74" y="52" width="52" height="8" rx="3" fill="#33445a"/>
+  <rect x="82" y="26" width="36" height="30" rx="4" fill="#33445a"/>
+</svg>
+
+<div class="shell">
+  <header class="top">
+    <a href="#" id="homeLink" class="brand" aria-label="Norsk på 1·2·3, home">Norsk <span>på</span> 1·2·3</a>
+    <span class="tag">Bokmål for beginners</span>
+  </header>
+  <main id="app" tabindex="-1"></main>
+  <footer class="foot">
+    <button id="resetBtn" class="linkish">Reset my progress</button>
+  </footer>
+</div>
+
+<script src="js/modules.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
