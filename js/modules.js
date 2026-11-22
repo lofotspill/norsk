@@ -22,7 +22,7 @@
   const GR = (title, html) => [title, html, 'Grammar'];
   const chat = (lines) => `<div class="chat">${lines.map(l => `<div class="bub them"><span lang="nb">${l}</span></div>`).join('')}<div class="bub me ghost">…</div></div>`;
   /* a small conversation: the learner picks what to say */
-  const tf = (vis, sentence, truth, why) => ({ k: 'mc', big: `<span class="bigvis">${vis}</span><span class="bigword" lang="nb">${sentence}</span>`, say: sentence, q: 'Does the sentence match the picture?', opts: ['Yes', 'No'], a: truth ? 'Yes' : 'No', why });
+  const tf = () => ({ k: 'skip' });
   const gap = (sentence, en, opts, a, why) => ({ k: 'mc', q: `Fill the gap: <b lang="nb">${sentence}</b> <span class="muted">(${en})</span>`, opts, a, why });
   const dlg = (lines, opts, a, why) => ({ k: 'mc', big: chat(lines), say: lines[lines.length - 1].replace(/<[^>]+>/g, ''), q: 'What do you say?', opts, a, why });
   const mc = (q, opts, a, why, big) => ({ k: 'mc', q, opts, a, why, big });
@@ -268,7 +268,7 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
       lesson('u4l1', 'Hello and goodbye', '👋', {
         groups: [
           { pre: ['Hello!', `<p>Time for your first real phrases. <b>Hei</b> is the all-purpose word for hello. You can use it with anyone, any time of day.</p>`], items: [I('hei', 'hi, hello', '👋'), I('god morgen', 'good morning', '🌅'), I('god kveld', 'good evening', '🌆')] },
-          { items: [I('god natt', 'good night', '🌙'), I('ha det', 'goodbye', '🫶', { tip: 'Literally “have it”. Add <b>bra</b> (good) to say <i>ha det bra</i>.' })] }
+          { items: [I('god natt', 'good night', '🌙'), I('ha det', 'goodbye', '🫶', { tip: 'Literally “have it”. Written as two words, but said as one: it sounds more like <b>“hadet”</b> (the <b>t</b> in <i>det</i> is usually silent, so “hah-deh”). Add <b>bra</b> (good) to say <i>ha det bra</i>.' })] }
         ]
       }),
       lesson('u4l2', 'Thanks and sorry', '🙏', {
@@ -305,7 +305,7 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
             pre: ['A small conversation', `<p>Norwegians use <b>bra</b> (good) for “fine” or “well”. Let us build a tiny conversation.</p>`],
             items: [I('Hvordan har du det?', 'How are you?', '💬'), I('Jeg har det bra.', 'I am fine.', '😊', { say: 'Jeg har det bra' }), I('Og du?', 'And you?', '🔁')]
           },
-          { items: [I('Takk, bra!', 'Thanks, good!', '👍'), I('Ha det bra!', 'Goodbye!', '👋')] }
+          { items: [I('Takk, bra!', 'Thanks, good!', '👍'), I('Ha det bra!', 'Goodbye!', '👋', { tip: 'Said fast, it sounds like <b>“hadet bra”</b>. The words run together.' })] }
         ],
         extra: () => [
           bank('Translate: “I am fine.”', 'Jeg har det bra.', ['du', 'heter'], '<b>Jeg har det bra</b> literally means “I have it good”.'),
@@ -824,6 +824,17 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
     const old = sp.extra;
     sp.extra = () => (old ? old() : []).concat(fn());
   };
+  addExtra(u4, 'u4l1', () => [
+    mc('It is eight in the morning. What do you say to your neighbour?', ['God morgen', 'God kveld', 'God natt'], 'God morgen', '<b lang="nb">morgen</b> = morning.'),
+    bank('Build the greeting: “Hi, good morning.”', 'Hei, god morgen.', ['kveld'], 'Hei, god morgen. A comma follows <b>hei</b>.', 'Hei, god morgen'),
+    bank('Build the greeting: “Hi, good evening.”', 'Hei, god kveld.', ['morgen'], 'Hei, god kveld.', 'Hei, god kveld'),
+    { k: 'bank', join: '', letters: true, q: 'Listen, then spell the word with the letters.', say: 'hei', tiles: ['h', 'e', 'i', 'o', 'a'], a: ['hei'], why: '<b lang="nb">hei</b> = hi. The <b>ei</b> sounds like “ay”.' },
+    mc('It is bedtime. What do you say?', ['God natt', 'God morgen', 'Hei'], 'God natt', '<b lang="nb">natt</b> = night.')
+  ]);
+  addExtra(u4, 'u4l2', () => [
+    bank('Build: “Thanks! You’re welcome.”', 'Takk! Vær så god.', ['nei'], 'Takk! Vær så god.'),
+    bank('Build: “Sorry, thanks.”', 'Unnskyld, takk.', ['ja'], 'Unnskyld, takk.')
+  ]);
   addExtra(u4, 'u4l3', () => [
     slots('Put the words in order: “What is your name?”', ['Hva', 'heter', 'du?'], 1, [], 'Question word first, verb second, person third.'),
     slots('Put the words in order: “Is your name Anna?”', ['Heter', 'du', 'Anna?'], 0, ['hva'], 'In a yes/no question the verb comes first.')

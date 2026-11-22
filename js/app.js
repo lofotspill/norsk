@@ -231,17 +231,13 @@
   }
   const options = (item, pool, lab, n) => shuffle([lab(item)].concat(others(item, pool, n || 3, lab).map(lab)));
 
-  const exPic = (it, pool) => !hasPic(it) ? exHear(it, pool) : ({
-    k: 'mc', big: bigVis(it), q: it.num ? 'Which word is this number?' : 'Which word matches the picture?',
-    opts: options(it, pool, x => x.no), a: it.no, why: whyOf(it)
-  });
   const exHear = (it, pool, digit) => (digit && it.num) ? ({
     k: 'mc', say: sayOf(it), q: 'Tap the number you hear.', opts: options(it, pool.filter(x => x.num), x => x.vis), a: it.vis, why: whyOf(it)
   }) : ({
     k: 'mc', say: sayOf(it), q: 'Tap what you hear.', opts: options(it, pool, x => x.no), a: it.no, why: whyOf(it)
   });
   const exEnNo = (it, pool) => ({
-    k: 'mc', big: it.num ? bigVis(it) : (hasPic(it) ? bigVis(it) : ''), q: `How do you say <b>“${it.en}”</b>?`,
+    k: 'mc', big: it.num ? bigVis(it) : '', q: `How do you say <b>“${it.en}”</b>?`,
     opts: options(it, pool, x => x.no), a: it.no, why: whyOf(it)
   });
   const exNoEn = (it, pool) => it.num ? ({
@@ -249,32 +245,21 @@
   }) : ({
     k: 'mc', big: bigWord(it), say: sayOf(it), q: 'What does this mean?', opts: options(it, pool, x => x.en), a: it.en, why: whyOf(it)
   });
-  const uniqPics = (pool) => { const seen = new Set(); return pool.filter(x => hasPic(x) && !seen.has(x.vis) && seen.add(x.vis)); };
-  const exPicTap = (it, pool) => {
-    const ps = uniqPics(pool);
-    if (!hasPic(it) || ps.length < 3) return exHear(it, pool);
-    const others3 = shuffle(ps.filter(x => x.vis !== it.vis)).slice(0, 3).map(x => x.vis);
-    return { k: 'mc', pics: true, say: sayOf(it), q: 'Tap the picture that matches what you hear.', opts: shuffle([it.vis].concat(others3)), a: it.vis, why: whyOf(it) };
-  };
-  const exPMatch = (items) => {
-    const ok = items.length >= 2 && items.every(it => hasPic(it) && !it.num) && new Set(items.map(i => i.vis)).size === items.length;
-    if (!ok) return exMatch(items);
-    return { k: 'match', pics: true, q: 'Match each picture with its word.', pairs: items.map(it => [it.vis, it.no]), why: items.map(it => `<b lang="nb">${it.no}</b> = ${it.en}`).join(' · ') };
-  };
-  const exMatch = (items) => ({
-    k: 'match', q: 'Tap the matching pairs.', pairs: items.map(it => [it.no, it.num ? it.vis : it.en]),
+  const uniqRight = (items) => { const seen = new Set(); return items.filter(it => { const r = it.num ? it.vis : it.en; return !seen.has(r) && seen.add(r); }); };
+  const exMatch = (items0) => { const items = uniqRight(items0); return ({
+    k: 'match', q: 'Drag each word onto its meaning. (Or tap a word, then its meaning.)', pairs: items.map(it => [it.no, it.num ? it.vis : it.en]),
     why: items.map(it => `<b lang="nb">${it.no}</b> = ${it.num ? it.vis : it.en}`).join(' · ')
-  });
+  }); };
   const exTypeHear = (it) => ({ k: 'type', say: sayOf(it), q: 'Type what you hear.', a: answersOf(it), why: whyOf(it) });
   const exTypeEn = (it) => ({
-    k: 'type', big: hasPic(it) ? bigVis(it) : '', q: it.num ? 'Write this number in Norwegian.' : `Write <b>“${it.en}”</b> in Norwegian.`,
+    k: 'type', big: it.num ? bigVis(it) : '', q: it.num ? 'Write this number in Norwegian.' : `Write <b>“${it.en}”</b> in Norwegian.`,
     a: answersOf(it), why: whyOf(it)
   });
   const exArt = (it) => {
     const a = art(it);
-    if (!a) return exPic(it, [it]);
+    if (!a) return exHear(it, [it]);
     return {
-      k: 'mc', big: bigVis(it), q: `Which little word fits? <b lang="nb">___ ${bare(it)}</b> (${it.en})`,
+      k: 'mc', q: `Which little word fits? <b lang="nb">___ ${bare(it)}</b> (${it.en})`,
       opts: a === 'ei' ? ['ei', 'et'] : ['en', 'ei', 'et'], a,
       why: `<b lang="nb">${it.no}</b>${a === 'ei' ? '. (<i>en ' + bare(it) + '</i> is also correct in Bokmål.)' : '.'}`
     };
@@ -286,24 +271,23 @@
     const extra = shuffle(LET.filter(c => !have.has(c))).slice(0, 2);
     return { k: 'bank', join: '', letters: true, q: 'Listen, then spell the word with the letters.', say: sayOf(it), tiles: w.split('').concat(extra), a: [w], why: whyOf(it) };
   };
-  /* drag the words to the pictures */
-  const exLabel = (items) => ({
-    k: 'label', q: 'Drag each word to its picture.', pairs: items.map(it => [it.vis, it.no]),
-    why: items.map(it => `<b lang="nb">${it.no}</b> = ${it.en}`).join(' · ')
-  });
-  const exMemory = (items) => {
-    const pics = items.every(it => hasPic(it) && !it.num) && new Set(items.map(i => i.vis)).size === items.length;
-    return pics
-      ? { k: 'memory', q: 'Find the pairs: a picture and its word.', pairs: items.map(it => [it.vis, it.no]), noSide: 1, why: items.map(it => `<b lang="nb">${it.no}</b> = ${it.en}`).join(' · ') }
-      : { k: 'memory', q: 'Find the pairs: the Norwegian and its meaning.', pairs: items.map(it => [it.no, it.num ? it.vis : it.en]), noSide: 0, why: items.map(it => `<b lang="nb">${it.no}</b> = ${it.num ? it.vis : it.en}`).join(' · ') };
+  /* build a phrase or sentence from word tiles (drag or tap) */
+  const exBuild = (it) => {
+    const ws = it.no.replace(/[.,!?]/g, '').split(/\s+/);
+    return { k: 'bank', q: `Build it in Norwegian: <b>“${it.en}”</b>`, say: sayOf(it), tiles: ws, a: [it.no], why: whyOf(it) };
   };
+  const exMemory = (items) => ({
+    k: 'memory', q: 'Find the pairs: the Norwegian and its meaning.', pairs: items.map(it => [it.no, it.num ? it.vis : it.en]), noSide: 0,
+    why: items.map(it => `<b lang="nb">${it.no}</b> = ${it.num ? it.vis : it.en}`).join(' · ')
+  });
+  const isPhrase = (it) => { const n = words(it); return n >= 2 && n <= 6 && !it.num; };
 
   /* one varied practice step per group of new words */
   function groupPractice(items, n) {
-    const picsOK = items.length >= 3 && items.every(hasPic) && !items.some(i => i.num) && new Set(items.map(i => i.vis)).size === items.length;
-    const opts = [() => exPMatch(items)];
-    if (picsOK && items.every(i => i.no.length <= 16)) opts.push(() => exLabel(items));
-    if (items.length >= 3 && items.every(i => i.no.length <= 13)) opts.push(() => exMemory(items));
+    const opts = [() => exMatch(items)];
+    const ph = items.filter(isPhrase);
+    if (ph.length) opts.push(() => exBuild(ph[n % ph.length]));
+    if (items.length >= 4 && items.every(i => i.no.length <= 13)) opts.push(() => exMemory(items));
     return opts[n % opts.length]();
   }
 
@@ -312,19 +296,18 @@
     pool = pool.filter(it => !seen.has(it.no) && seen.add(it.no));
     if (pool.length < 4) return [];
     const mix = targets && targets.length ? targets : shuffle(pool);
-    const picsPool = pool.filter(i => hasPic(i) && !i.num && i.no.length <= 16);
     const out = [];
-    const kinds = ['enNo', 'hear', 'spell', 'noEn', 'match', 'typeEn', 'hear', 'label', 'memory', 'typeHear'];
+    const kinds = ['enNo', 'hear', 'spell', 'noEn', 'match', 'typeEn', 'build', 'memory', 'hear', 'typeHear'];
     for (let i = 0; i < n; i++) {
       const it = mix[i % mix.length];
       let k = kinds[i % kinds.length];
       const single = !/\s/.test(it.no);
       if (k === 'spell' && !single) k = 'typeHear';
-      if (k === 'label' && uniqPics(picsPool).length < 3) k = 'enNo';
+      if (k === 'build' && !isPhrase(it)) { const ph = pool.filter(isPhrase); if (ph.length) { out.push(exBuild(ph[i % ph.length])); continue; } k = 'enNo'; }
       if (k === 'memory' && pool.filter(x => x.no.length <= 13).length < 4) k = 'match';
       if (k === 'match') out.push(exMatch(shuffle(pool).slice(0, Math.min(4, pool.length))));
       else if (k === 'memory') out.push(exMemory(shuffle(pool.filter(x => x.no.length <= 13)).slice(0, 4)));
-      else if (k === 'label') out.push(exLabel(shuffle(uniqPics(picsPool)).slice(0, 3)));
+      else if (k === 'build') out.push(exBuild(it));
       else if (k === 'enNo') out.push(exEnNo(it, pool));
       else if (k === 'hear') out.push(exHear(it, pool, i % 2 === 0));
       else if (k === 'spell') out.push(exSpell(it));
@@ -357,7 +340,7 @@
     const nBase = sp.mix ? 7 : 9;
     const targets = shuffle(own).slice(0, nBase - Math.min(2, old.length)).concat(old.slice(0, 2));
     const base = reviewSteps(pool, nBase, shuffle(targets));
-    const extra = sp.mix ? sp.mix() : [];
+    const extra = sp.mix ? sp.mix().filter(x => x.k !== 'skip') : [];
     const out = base.slice();
     extra.forEach((ex, j) => out.splice(Math.min(out.length, 2 + j * 3), 0, ex));
     return [{ k: 'note', title: 'Mastery time', icon: '🏆', html: sp.note || '<p>A mix of everything in this unit, with a few older words and phrases too. Say the answers out loud. When you finish, the next unit opens.</p>' }].concat(out);
@@ -365,7 +348,7 @@
 
   function buildSteps(f) {
     const sp = f.lesson.spec;
-    if (sp.build) return sp.build();
+    if (sp.build) return sp.build().filter(x => x.k !== 'skip');
     if (sp.mester || sp.review) return mesterSteps(f);
     const all = f.lesson.items;
     const prior = f.unit.lessons.slice(0, f.ui).flatMap(l => l.items);
@@ -380,7 +363,7 @@
       st.push({ k: 'grid', items: g.items });
       st.push(groupPractice(g.items, f.idx + gi));
       const its = shuffle(g.items);
-      st.push(sp.articles ? exArt(its[0]) : exPicTap(its[0], pool));
+      st.push(sp.articles ? exArt(its[0]) : (isPhrase(its[0]) ? exBuild(its[0]) : exHear(its[0], pool)));
       if (g.items.length >= 4 || gi === sp.groups.length - 1) st.push(exEnNo(its[1] || its[0], pool));
       if (g.post) st.push(toNote(g.post));
     });
@@ -390,7 +373,7 @@
       st.push(single.length ? exSpell(single[0]) : exTypeHear(mix[0]));
       st.push(exNoEn(mix[1] || mix[0], seen));
     }
-    if (sp.extra) st.push(...sp.extra());
+    if (sp.extra) st.push(...sp.extra().filter(x => x.k !== 'skip'));
     return st;
   }
 
@@ -409,7 +392,7 @@
     app.innerHTML = `<section class="card hero namecard">
       <h1><span lang="nb">Hei!</span> 👋</h1>
       <p class="lead">Welcome to <b>Norsk på 1·2·3</b>. First, what is your name?</p>
-      <p class="muted">Write your name or a nickname. Your teacher can see your name, the lessons you finish and your stars, so your teacher can follow your progress. You can switch this off later under “Save or restore my progress”.</p>
+      <p class="muted">Write your name or a nickname. Your progress is saved only on this device. Your teacher, Lene, can see your name, the lessons you finish and your stars, so she can help you get your progress back if it is ever lost. You can switch this off later under “Save or restore my progress”.</p>
       <div class="coderow"><input class="ans" id="yourname" placeholder="Your name or nickname" aria-label="Your name or nickname" maxlength="40" autocomplete="given-name"><button class="btn" id="namego" disabled>Start →</button></div>
       <p class="muted small">Already have a progress code? Enter your name first, then paste the code on the next page.</p>
     </section>`;
@@ -443,7 +426,7 @@
     const uniq = new Set(poolItems.map(i => i.no));
     const fc = formCfg(), sh = jget(SHARE, { on: false, name: '' });
     h += `<details class="card codecard" id="codecard"><summary>💾 Save or restore my progress</summary>
-      <p class="muted">Your progress is saved on this device. To keep it safe, or to move it to another device, copy your <b>progress code</b>. Paste a code below to get your stars and XP back.</p>
+      <p class="muted">Your progress is saved only on this device. If it is lost, your teacher Lene can see your name, finished lessons and stars, and help you restore it. To keep it safe, or to move it to another device, copy your <b>progress code</b>. Paste a code below to get your stars and XP back.</p>
       <div class="coderow"><input class="ans" id="mycode" readonly aria-label="Your progress code" value="${esc(makeCode())}"><button class="btn ghost" id="copycode">Copy</button></div>
       <div class="coderow"><input class="ans" id="incode" placeholder="Paste a progress code here" aria-label="Paste a progress code" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn" id="usecode">Restore</button></div>
       <div id="codemsg" class="codemsg" role="status"></div>
@@ -579,8 +562,7 @@
   }
 
   const audioBar = (word) => !word ? '' : `<div class="listenbar">
-      <button class="bigsay" data-say="${esc(word)}">🔊 Listen</button>
-      <button class="bigsay" data-say="${esc(word)}" data-slow="1">🐢 Slowly</button></div>
+      <button class="bigsay" data-say="${esc(word)}">🔊 Listen</button></div>
       ${audioOK() ? '' : `<div class="noaudio">Audio is not available on this device. The word is: <b lang="nb">${word}</b></div>`}`;
 
   const feedbackHTML = (ok, s, correct, near) => `<div class="feedback ${ok ? 'ok' : 'no'}" role="status">
@@ -637,7 +619,7 @@
     });
     app.querySelector('#go').onclick = next;
   }
-  const audioBtns = (w) => `<button class="say" data-say="${esc(w)}" aria-label="Listen">🔊</button><button class="say" data-say="${esc(w)}" data-slow="1" aria-label="Listen slowly">🐢</button>`;
+  const audioBtns = (w) => `<button class="say" data-say="${esc(w)}" aria-label="Listen">🔊</button>`;
 
   function renderCard(R, s) {
     const it = s.item;
@@ -650,7 +632,6 @@
         <div class="nw-en">${it.en}</div>
         <div class="listenbar" style="justify-content:center">
           <button class="bigsay" data-say="${esc(sayOf(it))}">🔊 Listen</button>
-          <button class="bigsay" data-say="${esc(sayOf(it))}" data-slow="1">🐢 Slowly</button>
         </div>
         ${it.tip ? `<div class="tip">${it.tip}</div>` : ''}
       </section>
