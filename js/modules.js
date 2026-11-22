@@ -18,7 +18,11 @@
   const N = (no, en, vis, tip) => I(no, en, vis, { noun: true, tip });
 
   /* steps */
-  const note = (title, html, icon) => ({ k: 'note', title, html, icon });
+  const note = (title, html, icon, tag) => ({ k: 'note', title, html, icon, tag });
+  const GR = (title, html) => [title, html, 'Grammar'];
+  const chat = (lines) => `<div class="chat">${lines.map(l => `<div class="bub them"><span lang="nb">${l}</span></div>`).join('')}<div class="bub me ghost">…</div></div>`;
+  /* a small conversation: the learner picks what to say */
+  const dlg = (lines, opts, a, why) => ({ k: 'mc', big: chat(lines), say: lines[lines.length - 1].replace(/<[^>]+>/g, ''), q: 'What do you say?', opts, a, why });
   const mc = (q, opts, a, why, big) => ({ k: 'mc', q, opts, a, why, big });
   const hearMC = (word, q, opts, a, why) => ({ k: 'mc', say: word, q, opts, a, why });
   const ty = (q, a, why, big) => ({ k: 'type', q, a: Array.isArray(a) ? a : [a], why, big });
@@ -263,7 +267,12 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
           },
           {
             pre: ['Your first questions', `<p>You already know <b>hva</b> (what), which is said “va”. So <i>Hva heter du?</i> means “What are you called?”, or “What is your name?”.</p>`],
-            items: [I('Hva heter du?', 'What is your name?', '❓'), I('Jeg heter Anna.', 'My name is Anna.', '🙂', { say: 'Jeg heter Anna' }), I('Hyggelig å møte deg.', 'Nice to meet you.', '🤝')]
+            items: [I('Hva heter du?', 'What is your name?', '❓'), I('Jeg heter Anna.', 'My name is Anna.', '🙂', { say: 'Jeg heter Anna' }), I('Hyggelig å møte deg.', 'Nice to meet you.', '🤝')],
+            post: GR('Questions turn the words around', `<p>In a question, the verb jumps in front of the person word.</p>
+<div class="rule" lang="nb"><b>Du heter</b> Anna. → <b>Heter du</b> Anna?</div>
+<p>With a question word like <b lang="nb">hva</b> (what) the order is: <b>question word → verb → person</b>.</p>
+<div class="rule" lang="nb"><b>Hva</b> · <b>heter</b> · <b>du</b>?</div>
+<p>Good news: the verb never changes with the person. It is <b>jeg heter</b> and <b>du heter</b>.</p>`)
           }
         ],
         extra: () => [
@@ -419,5 +428,246 @@ ${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squ
     ]
   };
 
-  window.UNITS = [u1, u2, u3, u4, u5, u6];
+
+  /* ───────── extra lessons ───────── */
+  u4.blurb = 'Politeness first: greetings, thanks and your name.';
+  u4.lessons.push(lesson('u4l5', 'Mastery: meet someone', '🎯', {
+    groups: [],
+    build: () => [
+      note('Put it all together', '<p>Now you will <b>use</b> what you know in a real conversation. Pick what you would say, and say it out loud.</p>', '🎯'),
+      dlg(['Hei!'], ['Hei!', 'Takk', 'God natt'], 'Hei!', 'Greet back with <b>Hei!</b>'),
+      dlg(['Hva heter du?'], ['Jeg heter Anna.', 'Jeg har det bra.', 'Ha det bra!'], 'Jeg heter Anna.', '<b>Hva heter du?</b> asks for your name.'),
+      dlg(['Hyggelig å møte deg.'], ['Hyggelig å møte deg.', 'Vær så god.', 'God natt.'], 'Hyggelig å møte deg.', 'You can answer with the same phrase.'),
+      dlg(['Hvordan har du det?'], ['Takk, bra! Og du?', 'Jeg heter Anna.', 'Vær så snill.'], 'Takk, bra! Og du?', '<b>Takk, bra! Og du?</b> means “Thanks, good! And you?”'),
+      dlg(['Takk!'], ['Vær så god!', 'Unnskyld.', 'God morgen.'], 'Vær så god!', '<b>Vær så god</b> is the reply to <b>takk</b>.'),
+      dlg(['Ha det bra!'], ['Ha det bra!', 'Hva heter du?', 'Jeg heter Anna.'], 'Ha det bra!', 'Say goodbye back.'),
+      bank('Build: “Hi! My name is Anna.”', 'Hei! Jeg heter Anna.', ['du', 'takk'], 'Hei! Jeg heter Anna.', 'Hei! Jeg heter Anna'),
+      bank('Build: “Thanks, I am fine.”', 'Takk, jeg har det bra.', ['heter', 'hei'], '<b>Takk, jeg har det bra.</b>', 'Takk, jeg har det bra')
+    ]
+  }));
+
+  u5.lessons.push(
+    lesson('u5l6', 'This is a …', '👉', {
+      groups: [
+        {
+          pre: GR('“Er” means “is”', `<p>Now we build <b>whole sentences</b> with the nouns you know. The key word is <b lang="nb">er</b>, which means <b>is</b> (and also <b>am</b> and <b>are</b>). It never changes.</p>
+<div class="rule" lang="nb">jeg <b>er</b> · du <b>er</b> · det <b>er</b></div>
+<p><b lang="nb">Dette</b> means “this”. <b lang="nb">Det</b> means “it” or “that”.</p>`),
+          items: [I('Dette er en bil.', 'This is a car.', '🚗'), I('Dette er et hus.', 'This is a house.', '🏠'), I('Dette er ei bok.', 'This is a book.', '📖')]
+        },
+        { items: [I('Hva er dette?', 'What is this?', '❓'), I('Det er en katt.', 'It is a cat.', '🐱')] }
+      ],
+      extra: () => [
+        bank('Build: “This is a house.”', 'Dette er et hus.', ['en', 'ei'], 'house = <b>et</b> hus.'),
+        bank('Build: “What is this?”', 'Hva er dette?', ['det', 'heter'], 'Hva er dette?')
+      ]
+    }),
+    lesson('u5l7', 'Is it a …?', '🤔', {
+      groups: [
+        {
+          pre: GR('The same trick again', `<p>You already know that a question turns the words around: <i>Du heter → Heter du?</i> It works for <b>er</b> too.</p>
+<div class="rule" lang="nb">Det <b>er</b> en hund. → <b>Er</b> det en hund?</div>
+<p>Answer with <b lang="nb">ja</b> (yes) or <b lang="nb">nei</b> (no), then a full sentence.</p>`),
+          items: [I('Er det en hund?', 'Is it a dog?', '🐶'), I('Ja, det er en hund.', 'Yes, it is a dog.', '✅'), I('Nei, det er en katt.', 'No, it is a cat.', '❌')]
+        }
+      ],
+      extra: () => [
+        bank('Build: “Is it a cat?”', 'Er det en katt?', ['dette', 'hva'], '<b>Er det …?</b> turns the sentence into a question.'),
+        mc('Which little word fits? <b lang="nb">Er det ___ bok?</b> (book)', ['ei', 'en', 'et'], 'ei', '<b>ei bok</b>. (<i>en bok</i> is also correct in Bokmål.)'),
+        bank('Build: “No, it is a house.”', 'Nei, det er et hus.', ['en', 'ei'], 'house = <b>et</b> hus.')
+      ]
+    })
+  );
+
+  u6.lessons.push(lesson('u6l4', 'Mastery: the and plural', '🎯', {
+    groups: [], review: true,
+    note: '<p>A mix of <b>the</b> and <b>more than one</b>. Remember: <b>en → -en</b>, <b>et → -et</b>, <b>ei → -a</b>, plural <b>-er</b>, and “the” plural <b>-ene</b>. Say each answer out loud.</p>'
+  }));
+
+  /* ───────── UNIT 7: MY AND YOUR ───────── */
+  const flip = (src, en, a, why) => ({ k: 'type', big: `<span class="bigword" lang="nb">${src}</span>`, q: `Say <b>“${en}”</b> the other way round.`, a: Array.isArray(a) ? a : [a], why });
+  const u7 = {
+    id: 'u7', title: 'Min og din', sub: '“My” and “your”', blurb: 'Saying my cat and your dog, two ways.',
+    lessons: [
+      lesson('u7l1', 'My: min, mi, mitt', '🙋', {
+        groups: [
+          {
+            pre: GR('“My” depends on the noun', `<p>To say <b>my</b>, Norwegian picks one of three little words. It depends on whether the noun is an <b>en</b>, <b>ei</b> or <b>et</b> word. You met these three groups already.</p>
+<table>
+<tr><td>${G('en')} en bil</td><td><b>min</b> bil</td><td>my car</td></tr>
+<tr><td>${G('ei')} ei bok</td><td><b>mi</b> bok</td><td>my book</td></tr>
+<tr><td>${G('et')} et hus</td><td><b>mitt</b> hus</td><td>my house</td></tr>
+</table>
+<div class="tip">In Bokmål you can also say <i>min bok</i>. We teach <b>mi</b> so you recognise it.</div>`),
+            items: [I('min bil', 'my car', '🚗'), I('min hund', 'my dog', '🐶'), I('mi bok', 'my book', '📖')]
+          },
+          { items: [I('mitt hus', 'my house', '🏠'), I('mitt eple', 'my apple', '🍎')] }
+        ],
+        extra: () => [
+          mc('Which word fits? <b lang="nb">___ katt</b> (my cat)', ['min', 'mi', 'mitt'], 'min', 'en katt → <b>min</b> katt.'),
+          mc('Which word fits? <b lang="nb">___ barn</b> (my child)', ['mitt', 'min', 'mi'], 'mitt', 'et barn → <b>mitt</b> barn.')
+        ]
+      }),
+      lesson('u7l2', 'Your: din, di, ditt', '👉', {
+        groups: [
+          {
+            pre: GR('“Your” works the same way', `<p><b>din / di / ditt</b> means <b>your</b>, and follows exactly the same pattern as min / mi / mitt.</p>
+<table>
+<tr><td>${G('en')}</td><td><b>min</b> bil</td><td><b>din</b> bil</td></tr>
+<tr><td>${G('ei')}</td><td><b>mi</b> bok</td><td><b>di</b> bok</td></tr>
+<tr><td>${G('et')}</td><td><b>mitt</b> hus</td><td><b>ditt</b> hus</td></tr>
+</table>`),
+            items: [I('din katt', 'your cat', '🐱'), I('di klokke', 'your clock', '🕐'), I('ditt hus', 'your house', '🏠')]
+          },
+          { items: [I('din bil', 'your car', '🚗'), I('ditt barn', 'your child', '🧒')] }
+        ],
+        extra: () => [
+          mc('Which word fits? <b lang="nb">___ hund</b> (your dog)', ['din', 'di', 'ditt'], 'din', 'en hund → <b>din</b> hund.'),
+          mc('Which word fits? <b lang="nb">___ eple</b> (your apple)', ['ditt', 'din', 'di'], 'ditt', 'et eple → <b>ditt</b> eple.')
+        ]
+      }),
+      lesson('u7l3', 'Katten min', '🐱', {
+        groups: [
+          {
+            pre: GR('Two ways to say “my cat”', `<p>You can put “my” <b>before</b> the noun, like English. Or you can put it <b>after</b> the noun. In that case, the noun gets its <b>“the” ending</b> from Unit 5.</p>
+<table>
+<tr><th>before</th><th>after</th></tr>
+<tr><td><b>min</b> katt</td><td>katt<b>en</b> <b>min</b></td></tr>
+<tr><td><b>mi</b> bok</td><td>bok<b>a</b> <b>mi</b></td></tr>
+<tr><td><b>mitt</b> hus</td><td>hus<b>et</b> <b>mitt</b></td></tr>
+</table>
+<div class="rule">noun + <b>the ending</b> + <b>min / mi / mitt</b></div>
+<p>So <b lang="nb">katten min</b> literally means “the cat my”, but it just means “my cat”.</p>`),
+            items: [I('katten min', 'my cat', '🐱', { tip: 'en katt → katt<b>en</b> + <b>min</b>' }), I('hunden din', 'your dog', '🐶', { tip: 'en hund → hund<b>en</b> + <b>din</b>' }), I('boka mi', 'my book', '📖', { tip: 'ei bok → bok<b>a</b> + <b>mi</b>' })]
+          },
+          {
+            pre: GR('Which one should I use?', `<p><b lang="nb">katten min</b> is the <b>everyday</b> way. It is what you will hear most, especially for family, pets and things you own.</p>
+<p><b lang="nb">min katt</b> is used when you want to stress it: “<i>MY</i> cat, not yours.” It is also common in more formal writing.</p>
+<div class="tip">Not sure? Use the <b>“after”</b> form: <i>katten min</i>.</div>
+<div class="tip bad">Never use both: <s>min katten</s> is wrong. Either <b>min katt</b> or <b>katten min</b>.</div>`),
+            items: [I('huset ditt', 'your house', '🏠', { tip: 'et hus → hus<b>et</b> + <b>ditt</b>' }), I('bilen min', 'my car', '🚗', { tip: 'en bil → bil<b>en</b> + <b>min</b>' })]
+          }
+        ],
+        extra: () => [
+          mc('Which one is <b>NOT</b> correct?', ['min katten', 'katten min', 'min katt', 'hunden din'], 'min katten', 'You use <b>either</b> <i>min katt</i> <b>or</b> <i>katten min</i>, never both.'),
+          flip('min bil', 'my car', 'bilen min', 'bil<b>en</b> + <b>min</b>.'),
+          flip('ditt hus', 'your house', 'huset ditt', 'hus<b>et</b> + <b>ditt</b>.'),
+          flip('mi bok', 'my book', ['boka mi', 'boken mi'], 'bok<b>a</b> + <b>mi</b>. (<i>boken mi</i> is also correct.)')
+        ]
+      }),
+      lesson('u7l4', 'Dette er katten min', '💬', {
+        groups: [
+          {
+            pre: GR('Now use it in sentences', `<p>Look how the pieces you know fit together:</p>
+<div class="rule" lang="nb">Dette <b>er</b> <b>katten min</b>.</div>
+<div class="rule" lang="nb"><b>Er</b> det <b>boka di</b>?</div>
+<p>And with <b lang="nb">heter</b> you can ask for the name of a pet: <b lang="nb">Hva heter hunden din?</b></p>`),
+            items: [I('Dette er katten min.', 'This is my cat.', '🐱'), I('Er det boka di?', 'Is that your book?', '📖'), I('Ja, det er boka mi.', 'Yes, it is my book.', '✅')]
+          },
+          { items: [I('Hva heter hunden din?', 'What is your dog called?', '🐶'), I('Hunden min heter Pelle.', 'My dog is called Pelle.', '🐕')] }
+        ],
+        extra: () => [
+          bank('Build: “This is my dog.”', 'Dette er hunden min.', ['min', 'mi'], 'Dette er <b>hunden min</b>.'),
+          bank('Build: “Is it your house?”', 'Er det huset ditt?', ['hus', 'din'], 'Er det <b>huset ditt</b>?')
+        ]
+      }),
+      lesson('u7l5', 'Mastery: mine and yours', '🎯', {
+        groups: [],
+        build: () => [
+          note('Show what you can do', '<p>A conversation about things that belong to you. Choose the best reply.</p>', '🎯'),
+          dlg(['Hva er dette?'], ['Det er katten min.', 'Hei!', 'Jeg heter Anna.'], 'Det er katten min.', 'Use <b>det er …</b> to answer.'),
+          dlg(['Er det boka di?'], ['Ja, det er boka mi.', 'Takk, bra!', 'Ha det bra!'], 'Ja, det er boka mi.', '<b>boka di</b> → <b>boka mi</b>.'),
+          dlg(['Hva heter hunden din?'], ['Hunden min heter Pelle.', 'Jeg har det bra.', 'God natt.'], 'Hunden min heter Pelle.', 'Answer with <b>heter</b>.'),
+          dlg(['Er det huset ditt?'], ['Ja, det er huset mitt.', 'Vær så god.', 'God natt.'], 'Ja, det er huset mitt.', '<b>huset ditt</b> → <b>huset mitt</b>.'),
+          bank('Build: “My cat is called Luna.”', 'Katten min heter Luna.', ['min', 'er'], 'Katten min heter Luna.'),
+          mc('Which of these means <b>“your book”</b>?', ['boka di', 'boka mi', 'di bok mi'], 'boka di', 'bok<b>a</b> + <b>di</b>.')
+        ]
+      })
+    ]
+  };
+
+  /* ───────── UNIT 8: SENTENCES ───────── */
+  const u8 = {
+    id: 'u8', title: 'Si noe om deg selv', sub: 'Talk about yourself', blurb: 'Where you are from, what you speak, have and like.',
+    lessons: [
+      lesson('u8l1', 'Where are you from?', '🌍', {
+        groups: [
+          {
+            pre: GR('Asking “where”', `<p><b lang="nb">Hvor</b> means <b>where</b>. You already know the pattern: question word → verb → person.</p>
+<div class="rule" lang="nb"><b>Hvor</b> · <b>er</b> · <b>du</b> fra?</div>
+<p><b lang="nb">fra</b> means “from”. To answer, put your country after <b lang="nb">Jeg er fra</b>.</p>
+<div class="tip">Most country names look like the English ones. Ask your teacher for the Norwegian name of your country and use it in place of <i>Polen</i>.</div>`),
+            items: [I('Hvor er du fra?', 'Where are you from?', '🌍'), I('Jeg er fra Norge.', 'I am from Norway.', '🏔️'), I('Jeg er fra Polen.', 'I am from Poland.', '🌍')]
+          },
+          { items: [I('Jeg er fra England.', 'I am from England.', '🌍'), I('Er du fra Norge?', 'Are you from Norway?', '🤔')] }
+        ],
+        extra: () => [
+          bank('Build: “Where are you from?”', 'Hvor er du fra?', ['heter', 'hva'], 'Hvor er du fra?'),
+          bank('Build: “I am from Poland.”', 'Jeg er fra Polen.', ['du', 'har'], 'Jeg er fra Polen.')
+        ]
+      }),
+      lesson('u8l2', 'I speak …', '🗣️', {
+        groups: [
+          {
+            pre: GR('Verbs ending in -er', `<p>A <b>verb</b> is a word for an action: <i>speak</i>, <i>like</i>, <i>live</i>. Most Norwegian verbs end in <b>-er</b> in the present tense, and <b>they are the same for every person</b>.</p>
+<div class="rule" lang="nb">jeg snakk<b>er</b> · du snakk<b>er</b> · hun snakk<b>er</b></div>
+<p>Compare this to English: <i>I speak</i>, but <i>she speak<b>s</b></i>. Norwegian is easier!</p>`),
+            items: [I('Jeg snakker norsk.', 'I speak Norwegian.', '🗣️'), I('Jeg snakker engelsk.', 'I speak English.', '💬'), I('Snakker du norsk?', 'Do you speak Norwegian?', '❓')]
+          },
+          {
+            pre: GR('“A little”', `<p><b lang="nb">litt</b> means “a little”. It goes right before the language: <b lang="nb">Jeg snakker litt norsk.</b></p>`),
+            items: [I('Jeg snakker litt norsk.', 'I speak a little Norwegian.', '🤏'), I('Ja, jeg snakker litt norsk.', 'Yes, I speak a little Norwegian.', '✅')]
+          }
+        ],
+        extra: () => [
+          bank('Build: “Do you speak English?”', 'Snakker du engelsk?', ['jeg', 'er'], 'The verb comes first in the question.'),
+          bank('Build: “I speak a little Norwegian.”', 'Jeg snakker litt norsk.', ['du', 'engelsk'], 'Jeg snakker litt norsk.')
+        ]
+      }),
+      lesson('u8l3', 'I have …', '🎒', {
+        groups: [
+          {
+            pre: GR('“Har” and “ikke”', `<p><b lang="nb">har</b> means <b>have</b> (<i>jeg har, du har</i>). It never changes. Questions turn it around, as you know: <b lang="nb">Har du …?</b></p>
+<p><b lang="nb">ikke</b> means <b>not</b>. It goes <b>right after the verb</b>:</p>
+<div class="rule" lang="nb">Jeg har <b>ikke</b> katt.</div>
+<div class="tip">When you say you do <b>not</b> have something, Norwegians usually drop <i>en / ei / et</i>: <i>Jeg har ikke katt.</i></div>`),
+            items: [I('Jeg har en hund.', 'I have a dog.', '🐶'), I('Har du en katt?', 'Do you have a cat?', '🐱'), I('Nei, jeg har ikke katt.', 'No, I do not have a cat.', '❌')]
+          }
+        ],
+        extra: () => [
+          bank('Build: “Do you have a dog?”', 'Har du en hund?', ['er', 'jeg'], 'Har du en hund?'),
+          bank('Build: “I do not have a dog.”', 'Jeg har ikke hund.', ['en', 'du'], '<b>ikke</b> comes right after the verb, and <i>en</i> is dropped.'),
+          mc('Where does <b>ikke</b> go?', ['Jeg har ikke katt.', 'Jeg ikke har katt.', 'Ikke jeg har katt.'], 'Jeg har ikke katt.', '<b>ikke</b> comes right after the verb.')
+        ]
+      }),
+      lesson('u8l4', 'I like …', '❤️', {
+        groups: [
+          {
+            pre: ['What do you like?', `<p>Another verb in <b>-er</b>: <b lang="nb">liker</b> means “like”. It follows the same patterns you have met: the question flips, and <b>ikke</b> goes after the verb.</p>`],
+            items: [I('Jeg liker kaffe.', 'I like coffee.', '☕'), I('Liker du fisk?', 'Do you like fish?', '🐟'), I('Ja, jeg liker fisk.', 'Yes, I like fish.', '✅')]
+          },
+          { items: [I('Jeg liker ikke fisk.', 'I do not like fish.', '🚫'), I('Jeg liker musikk.', 'I like music.', '🎵')] }
+        ],
+        extra: () => [
+          bank('Build: “Do you like coffee?”', 'Liker du kaffe?', ['jeg', 'er'], 'Liker du kaffe?'),
+          bank('Build: “I do not like fish.”', 'Jeg liker ikke fisk.', ['du', 'har'], '<b>ikke</b> comes after the verb.')
+        ]
+      }),
+      lesson('u8l5', 'Mastery: a first chat', '🎯', {
+        groups: [],
+        build: () => [
+          note('Your first real conversation', '<p>Everything comes together here: greeting, name, where you are from, languages, likes. Choose what you would say.</p>', '🎯'),
+          dlg(['Hei! Hva heter du?'], ['Hei! Jeg heter Anna.', 'Takk, bra!', 'Ha det bra!'], 'Hei! Jeg heter Anna.', 'Greet and give your name.'),
+          dlg(['Hvor er du fra?'], ['Jeg er fra Polen.', 'Jeg heter Polen.', 'Jeg har en hund.'], 'Jeg er fra Polen.', '<b>Jeg er fra …</b>'),
+          dlg(['Snakker du norsk?'], ['Ja, jeg snakker litt norsk.', 'Nei, jeg heter norsk.', 'Vær så god.'], 'Ja, jeg snakker litt norsk.', '<b>Jeg snakker litt norsk.</b>'),
+          dlg(['Har du en hund?'], ['Ja, jeg har en hund.', 'Jeg er fra hund.', 'God natt.'], 'Ja, jeg har en hund.', '<b>Ja, jeg har …</b>'),
+          dlg(['Liker du kaffe?'], ['Ja, jeg liker kaffe.', 'Dette er katten min.', 'Hva er dette?'], 'Ja, jeg liker kaffe.', '<b>Jeg liker …</b>'),
+          bank('Build: “I am from Poland and I speak a little Norwegian.”', 'Jeg er fra Polen, og jeg snakker litt norsk.', ['heter', 'du'], 'Two sentences joined with <b>og</b> (and).'),
+          bank('Build: “My dog is called Pelle.”', 'Hunden min heter Pelle.', ['du', 'er'], 'Hunden min heter Pelle.')
+        ]
+      })
+    ]
+  };
+
+  window.UNITS = [u1, u2, u4, u3, u5, u6, u7, u8];
 })();

@@ -270,3 +270,14 @@ ul.wronglist li{margin-bottom:8px}
   .snowman{height:27vh;opacity:.8}
 }
 [hidden]{display:none!important}
+
+/* grammar badge, chat bubbles */
+.tagbadge{display:inline-block;font-size:.75rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--blue-d);background:var(--blue-l);border-radius:999px;padding:3px 11px;margin-bottom:10px}
+.tagbadge.gram{background:#fff3cf;color:#7a5a00}
+.tip.bad{background:var(--bad-bg);border-color:#e3b9b9}
+.chat{display:flex;flex-direction:column;gap:8px;margin:4px 0 12px}
+.bub{max-width:80%;padding:9px 14px;border-radius:18px;font-size:1.1rem;line-height:1.4}
+.bub.them{align-self:flex-start;background:#fff;border:1.5px solid rgba(47,111,159,.25);border-bottom-left-radius:6px}
+.bub.me{align-self:flex-end;background:var(--blue);color:#fff;border-bottom-right-radius:6px}
+.bub.ghost{opacity:.55}
+.note table{width:100%;border-collapse:collapse;margin:10px 0}

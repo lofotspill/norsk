@@ -3,7 +3,7 @@
 
   const app = document.getElementById('app');
   const UNITS = window.UNITS;
-  const KEY = 'norsk123.progress.v2';
+  const KEY = 'norsk123.progress.v3';
 
   /* flat lesson list: lessons unlock one after another */
   const FLAT = [];
@@ -31,16 +31,24 @@
     speechSynthesis.onvoiceschanged = () => { findVoice(); if (state.view === 'home') render(); };
   }
   const audioOK = () => hasTTS && !!voice;
+  let curUtter = null, speakTimer = 0;
   function speak(text, slow) {
     if (!hasTTS) return;
-    try {
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'nb-NO';
-      if (voice) u.voice = voice;
-      u.rate = slow ? 0.55 : 0.9;
-      speechSynthesis.speak(u);
-    } catch (e) { /* ignore */ }
+    clearTimeout(speakTimer);
+    try { speechSynthesis.cancel(); } catch (e) { /* ignore */ }
+    /* a short pause after cancel() and a held reference to the utterance stop browsers from cutting the speech off */
+    speakTimer = setTimeout(() => {
+      try {
+        const u = new SpeechSynthesisUtterance(String(text).replace(/\.\.\./g, ''));
+        u.lang = 'nb-NO';
+        if (voice) u.voice = voice;
+        u.rate = slow ? 0.7 : 0.9;
+        u.onend = u.onerror = () => { if (curUtter === u) curUtter = null; };
+        curUtter = u;
+        speechSynthesis.speak(u);
+        if (speechSynthesis.paused) speechSynthesis.resume();
+      } catch (e) { /* ignore */ }
+    }, 90);
   }
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-say]');
@@ -115,12 +123,11 @@
 
   function drill(items, pool, spec) {
     const st = items.map((it, i) => (spec.articles && i % 2 === 0) ? exArt(it) : (i % 2 === 0 ? exPic(it, pool) : exHear(it, pool, spec.digits !== false)));
-    if (items.length >= 3) st.push(exMatch(items));
     return st;
   }
   function finalMix(all, pool, spec) {
     const types = ['enNo', 'typeHear', 'noEn', 'typeEn', 'hear', 'enNo'];
-    return shuffle(all).slice(0, 6).map((it, i) => {
+    return shuffle(all).slice(0, 3).map((it, i) => {
       switch (types[i]) {
         case 'enNo': return spec.articles && i % 2 ? exArt(it) : exEnNo(it, pool);
         case 'typeHear': return exTypeHear(it);
@@ -149,14 +156,14 @@
     }
     return out;
   }
-  const toNote = (p) => Array.isArray(p) ? { k: 'note', title: p[0], html: p[1] } : p;
+  const toNote = (p) => Array.isArray(p) ? { k: 'note', title: p[0], html: p[1], tag: p[2] } : p;
 
   function buildSteps(f) {
     const sp = f.lesson.spec;
     if (sp.build) return sp.build();
     if (sp.review) {
       const pool = f.unit.lessons.filter(l => l !== f.lesson).flatMap(l => l.items);
-      return [{ k: 'note', title: 'Mix it up', icon: '🎯', html: '<p>Time to mix everything you have learned in this unit. Take your time and say each number out loud.</p>' }].concat(reviewSteps(pool, 10));
+      return [{ k: 'note', title: 'Mix it up', icon: '🎯', html: sp.note || '<p>Time to mix everything you have learned in this unit. Say the answers out loud.</p>' }].concat(reviewSteps(pool, 10));
     }
     const all = f.lesson.items, pool = all.concat(sp.pool || []);
     const st = [];
@@ -166,6 +173,7 @@
       st.push(...drill(g.items, pool, sp));
       if (g.post) st.push(toNote(g.post));
     });
+    if (all.length >= 3) st.push(exMatch(shuffle(all).slice(0, 4)));
     st.push(...finalMix(all, pool, sp));
     if (sp.extra) st.push(...sp.extra());
     return st;
@@ -185,7 +193,7 @@
     const doneCount = Object.keys(p.lessons || {}).length;
     let h = `<section class="card hero">
       <h1><span lang="nb">Hei!</span> 👋</h1>
-      <p class="lead">Welcome to <b>Norsk på 1·2·3</b>. Learn Norwegian (Bokmål) in small, friendly steps. Start at the top and follow the path.</p>
+      <p class="lead">Welcome to <b>Norsk på 1·2·3</b>. Learn Norwegian (Bokmål) in small, friendly steps: new words, then sentences, then grammar that explains how it all fits. Start at the top and follow the path.</p>
       <div class="stats"><span>⭐ ${p.xp || 0} XP</span><span>✅ ${doneCount} of ${FLAT.length} lessons</span></div>
     </section>`;
     if (!audioOK()) {
@@ -309,6 +317,7 @@
   function renderNote(R, s) {
     app.innerHTML = `${bar(R)}
       <section class="card note">
+        ${s.tag ? `<div class="tagbadge ${s.tag === 'Grammar' ? 'gram' : ''}">${s.tag === 'Grammar' ? '📘 Grammar' : s.tag}</div>` : ''}
         ${s.icon ? `<div class="noteicon">${s.icon}</div>` : ''}
         <h2>${s.title}</h2>${s.html}
       </section>

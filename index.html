@@ -2,93 +2,60 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Norsk på 1-2-3</title>
-<link rel="stylesheet" href="game/style.css">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Norsk på 1·2·3</title>
+<meta name="description" content="Learn Norwegian (Bokmål) step by step, with explanations in English.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9D%84%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<canvas id="snow"></canvas>
-<svg class="bg-drift" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-hidden="true"><path d="M0 70 C150 20 300 90 480 55 C650 20 820 90 1000 45 L1000 120 L0 120Z" fill="#fff" opacity=".9"/><path d="M0 95 C200 60 380 110 560 85 C760 60 880 105 1000 80 L1000 120 L0 120Z" fill="#f2f8fc"/></svg>
-<svg class="bg-snowman" viewBox="0 0 200 300" aria-hidden="true">
-  <ellipse cx="100" cy="292" rx="70" ry="8" fill="#b9d2e6" opacity=".6"/>
-  <circle cx="100" cy="228" r="58" fill="#fff" stroke="#c4d8e8" stroke-width="3"/>
-  <circle cx="100" cy="143" r="43" fill="#fff" stroke="#c4d8e8" stroke-width="3"/>
-  <circle cx="100" cy="81" r="31" fill="#fff" stroke="#c4d8e8" stroke-width="3"/>
-  <rect x="72" y="36" width="56" height="10" rx="3" fill="#33445a"/><rect x="82" y="8" width="36" height="32" rx="4" fill="#33445a"/>
-  <circle cx="90" cy="76" r="3.5" fill="#33445a"/><circle cx="110" cy="76" r="3.5" fill="#33445a"/>
-  <path d="M100 84 L128 90 L100 95Z" fill="#e8893b"/>
-  <path d="M72 106 Q100 122 128 106 L128 118 Q100 134 72 118Z" fill="#c9514f"/>
-  <circle cx="100" cy="150" r="4" fill="#33445a"/><circle cx="100" cy="168" r="4" fill="#33445a"/>
-  <path d="M60 140 L22 118 M140 140 L178 118" stroke="#7d5a3c" stroke-width="4" stroke-linecap="round"/>
+
+<canvas id="snow" aria-hidden="true"></canvas>
+
+<svg class="drift" aria-hidden="true" viewBox="0 0 1440 220" preserveAspectRatio="none">
+  <path d="M0 120 C 220 40, 420 150, 700 100 C 980 50, 1180 140, 1440 70 L1440 220 L0 220 Z" fill="#ffffff" opacity=".75"/>
+  <path d="M0 160 C 260 110, 520 190, 800 150 C 1060 112, 1260 180, 1440 140 L1440 220 L0 220 Z" fill="#ffffff"/>
 </svg>
 
-<div class="wrap">
-  <header class="brand"><h1>❄️ Norsk på 1-2-3</h1><a href="kurs/">Lessons (course) →</a></header>
+<svg class="snowman" aria-hidden="true" viewBox="0 0 200 300" role="presentation">
+  <defs>
+    <radialGradient id="sg" cx="35%" cy="30%" r="80%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dbe8f3"/>
+    </radialGradient>
+  </defs>
+  <ellipse cx="100" cy="288" rx="80" ry="9" fill="#9db9d1" opacity=".35"/>
+  <path d="M52 168 L18 142 M18 142 L8 146 M18 142 L14 130" stroke="#7a5c43" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M148 168 L182 142 M182 142 L192 146 M182 142 L186 130" stroke="#7a5c43" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <circle cx="100" cy="226" r="60" fill="url(#sg)" stroke="#b6cadc" stroke-width="2"/>
+  <circle cx="100" cy="150" r="44" fill="url(#sg)" stroke="#b6cadc" stroke-width="2"/>
+  <circle cx="100" cy="92" r="31" fill="url(#sg)" stroke="#b6cadc" stroke-width="2"/>
+  <rect x="66" y="112" width="68" height="13" rx="6" fill="#c9514f"/>
+  <rect x="116" y="118" width="14" height="34" rx="5" fill="#c9514f"/>
+  <circle cx="90" cy="86" r="3.2" fill="#33445a"/>
+  <circle cx="110" cy="86" r="3.2" fill="#33445a"/>
+  <path d="M100 94 L128 99 L100 103 Z" fill="#e8893b"/>
+  <path d="M90 104 q10 7 20 0" stroke="#33445a" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <circle cx="100" cy="146" r="3.4" fill="#33445a"/>
+  <circle cx="100" cy="164" r="3.4" fill="#33445a"/>
+  <circle cx="100" cy="206" r="3.8" fill="#33445a"/>
+  <circle cx="100" cy="228" r="3.8" fill="#33445a"/>
+  <rect x="74" y="52" width="52" height="8" rx="3" fill="#33445a"/>
+  <rect x="82" y="26" width="36" height="30" rx="4" fill="#33445a"/>
+</svg>
 
-  <section id="title" class="glass">
-    <h2>Første skoledag</h2>
-    <p class="sub">Your first day at a Norwegian school</p>
-    <p>You have just arrived in Norway. You do not speak Norwegian yet, and that is okay. Walk around, meet people, and learn the words you need to <b>make friends</b>.</p>
-    <label for="nameIn">Hva heter du? <span style="font-weight:400;color:var(--mut)">(What is your name?)</span></label>
-    <input id="nameIn" maxlength="14" autocomplete="off" placeholder="Your first name">
-    <p id="nameErr" class="err" hidden>Write your name first.</p>
-    <div class="stack">
-      <button class="btn" id="startBtn">Start new game</button>
-      <button class="btn ghost" id="cont-game" hidden>Continue</button>
-    </div>
-    <div class="note" id="voiceNote" hidden>🔊 <b>Sound:</b> this game reads Norwegian aloud with your device's voice. If you hear nothing or an English voice, install a Norwegian voice. On a Mac: System Settings → Accessibility → Spoken Content → System Voice → Manage Voices → Norwegian.</div>
-  </section>
-
-  <main id="game" hidden>
-    <div class="hud">
-      <div class="quest glass"><div class="k">Oppdrag · Quest</div><div class="no" id="questNo"></div><div class="en" id="questEn"></div></div>
-      <div class="stats glass">
-        <div id="friends"></div>
-        <div class="tools">
-          <span>🔤 <b id="wordsCount">0</b></span>
-          <button class="chip" id="pbBtn">📖 <b id="phrCount">0</b></button>
-          <button class="chip" id="enBtn" aria-pressed="true">EN ✓</button>
-          <button class="chip" id="sndBtn" aria-label="Sound">🔊</button>
-          <button class="chip" id="homeBtn" aria-label="Menu">☰</button>
-        </div>
-      </div>
-    </div>
-    <div class="stage">
-      <canvas id="world"></canvas>
-      <div id="toast" hidden></div>
-      <div id="panel" hidden></div>
-    </div>
-    <div class="pad">
-      <div class="dpad">
-        <button class="u" data-dir="up" aria-label="Up">▲</button>
-        <button class="l" data-dir="left" aria-label="Left">◀</button>
-        <button class="r" data-dir="right" aria-label="Right">▶</button>
-        <button class="d" data-dir="down" aria-label="Down">▼</button>
-      </div>
-      <button class="abtn" id="actBtn" aria-label="Talk or look">A</button>
-    </div>
-    <p class="hintline">Arrow keys or WASD to walk · Space or Enter to talk or look · follow the yellow arrow</p>
-  </main>
+<div class="shell">
+  <header class="top">
+    <a href="#" id="homeLink" class="brand" aria-label="Norsk på 1·2·3, home">Norsk <span>på</span> 1·2·3</a>
+    <span class="tag">Bokmål for beginners</span>
+  </header>
+  <main id="app" tabindex="-1"></main>
+  <footer class="foot">
+    <button id="resetBtn" class="linkish">Reset my progress</button>
+  </footer>
 </div>
 
-<div class="overlay" id="pb" hidden>
-  <div class="modal glass"><h2>📖 Frasebok</h2><div id="pbBody"></div><div class="acts"><button class="btn" id="pbClose">Close</button></div></div>
-</div>
-
-<div class="overlay" id="end" hidden>
-  <div class="modal glass" style="text-align:center">
-    <h2>Kapittel 1 er ferdig!</h2>
-    <p class="len">Chapter 1 complete. You made two friends on your first day.</p>
-    <div class="stats-row" id="endStats" style="justify-content:center"></div>
-    <div class="stack">
-      <button class="btn" id="endKeep">Keep exploring</button>
-      <button class="btn ghost" id="endPB">Open phrasebook</button>
-      <button class="btn ghost" id="endAgain">Play again</button>
-    </div>
-  </div>
-</div>
-
-<script src="game/data.js"></script>
-<script src="game/engine.js"></script>
+<script src="js/modules.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
