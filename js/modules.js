@@ -1,337 +1,423 @@
 /* Course content for "Norsk på 1·2·3".
-   Every grammar term is explained the first time it appears. */
+   Principle: every word is SHOWN and HEARD on a "new word" card before it is ever asked about.
+   Lessons are short. Wrong answers come back at the end of the lesson. */
 
-const say = (w) => `<button class="say" data-say="${w}" aria-label="Listen: ${w}" title="Listen">🔊</button>`;
-const W = (no, en) => `<span class="w"><b lang="nb">${no}</b>${say(no)}${en ? `<span class="en">${en}</span>` : ''}</span>`;
-const G = (g) => `<span class="g g-${g}">${g}</span>`;
-const TERM = (term, no, def) => `<div class="term"><b>${term}</b>${no ? ` <span lang="nb">(${no})</span>` : ''} — ${def}</div>`;
-const TIP = (html) => `<div class="tip">${html}</div>`;
+(function () {
+  'use strict';
 
-/* question builders */
-const mc = (q, opts, a, why) => ({ t: 'mc', q, opts, a, why });
-const ls = (word, q, opts, a, why) => ({ t: 'mc', say: word, q, opts, a, why });
-const ty = (q, a, why, say) => ({ t: 'type', q, a: Array.isArray(a) ? a : [a], why, say });
-const mt = (q, pairs, why) => ({ t: 'match', q, pairs, why });
+  /* ───────── small helpers ───────── */
+  const say = (w) => `<button class="say" data-say="${w}" aria-label="Listen: ${w}" title="Listen">🔊</button>`;
+  const W = (no, en) => `<span class="w"><b lang="nb">${no}</b>${say(no)}${en ? `<span class="en">${en}</span>` : ''}</span>`;
+  const G = (g) => `<span class="g g-${g}">${g}</span>`;
+  const TERM = (term, no, def) => `<div class="term"><b>${term}</b>${no ? ` <span lang="nb">(${no})</span>` : ''}: ${def}</div>`;
+  const TIP = (html) => `<div class="tip">${html}</div>`;
 
-window.MODULES = [
+  /* items: no = Norwegian, en = English, vis = what is shown big (emoji or digit) */
+  const I = (no, en, vis, o) => Object.assign({ no, en, vis: vis === undefined ? no : vis }, o || {});
+  const NUM = (no, n, en, tip) => I(no, en, String(n), { num: true, tip });
+  const N = (no, en, vis, tip) => I(no, en, vis, { noun: true, tip });
 
-/* ───────────────────────── MODULE 1 ───────────────────────── */
-{
-  id: 1,
-  title: 'Letters and sounds',
-  blurb: 'The alphabet, vowels, tricky consonants, and how long and short sounds work.',
-  lessons: [
-    {
-      title: 'The Norwegian alphabet',
-      html: `
-<h2>The Norwegian alphabet</h2>
-<p>Norwegian is written with the same Latin letters as English, plus <b>three extra letters</b> at the very end of the alphabet. In total there are <b>29 letters</b>.</p>
-<div class="rule" lang="nb"><b>a b c d e f g h i j k l m n o p q r s t u v w x y z æ ø å</b></div>
-<p>The letters <b>c, q, w, x</b> and <b>z</b> are only used in words borrowed from other languages. You will hardly meet them.</p>
-${TERM('Letter', 'bokstav', 'a written symbol, like <b>a</b> or <b>ø</b>.')}
-${TERM('Sound', 'lyd', 'what you hear when you say the letter or word out loud.')}
-<p>In English, the same letters can be pronounced in many different ways (think of <i>though</i>, <i>through</i> and <i>tough</i>). Norwegian is much more regular. Once you learn the rules in this module, you can read almost any Norwegian word out loud.</p>
-${TERM('Vowel', 'vokal', 'a sound made with open, free airflow. The vowel letters are <b>a e i o u y æ ø å</b>. Every syllable needs at least one vowel.')}
-${TERM('Consonant', 'konsonant', 'a sound made by blocking or narrowing the airflow with your lips, tongue or throat, like <b>b</b>, <b>k</b>, <b>s</b> or <b>t</b>. All the other letters are consonants.')}
-<p>Tap the speaker buttons to hear words. If you cannot hear anything, see the note on the front page about Norwegian voices.</p>
-<p>Try: ${W('å', 'the last letter')} ${W('snø', 'snow')} ${W('vinter', 'winter')}</p>`
-    },
-    {
-      title: 'The nine vowels',
-      html: `
-<h2>The nine vowels</h2>
-<p>Norwegian has nine vowel letters. Each one can be <b>long</b> (held a bit longer) or <b>short</b>. The "sounds like" column gives the closest English sound. Listen to every example.</p>
-<table>
-<tr><th>Letter</th><th>Sounds like</th><th>Examples</th></tr>
-<tr><td class="big">a</td><td><i>a</i> in <i>father</i></td><td>${W('dag', 'day')}${W('takk', 'thanks')}</td></tr>
-<tr><td class="big">e</td><td>long: <i>ay</i> in <i>say</i>, but held steady with no glide.<br>short: <i>e</i> in <i>bed</i></td><td>${W('se', 'see')}${W('seng', 'bed')}</td></tr>
-<tr><td class="big">i</td><td>long: <i>ee</i> in <i>see</i><br>short: <i>i</i> in <i>sit</i></td><td>${W('vi', 'we')}${W('vinter', 'winter')}</td></tr>
-<tr><td class="big">o</td><td>usually <i>oo</i> in <i>moon</i><br>sometimes short, like <i>o</i> in <i>off</i></td><td>${W('bok', 'book')}${W('sko', 'shoe')}${W('komme', 'come')}</td></tr>
-<tr><td class="big">u</td><td>no English match. Round your lips as for <i>oo</i>, then try to say <i>ee</i>.</td><td>${W('hus', 'house')}${W('du', 'you')}</td></tr>
-<tr><td class="big">y</td><td>round your lips and say <i>ee</i>. Like German <i>ü</i> or French <i>u</i>.</td><td>${W('by', 'city')}${W('ny', 'new')}</td></tr>
-<tr><td class="big">æ</td><td><i>a</i> in <i>cat</i> (stretched when long)</td><td>${W('vær', 'weather')}${W('lære', 'to learn')}</td></tr>
-<tr><td class="big">ø</td><td><i>ur</i> in British <i>fur</i>, without the r</td><td>${W('snø', 'snow')}${W('brød', 'bread')}</td></tr>
-<tr><td class="big">å</td><td><i>aw</i> in <i>saw</i></td><td>${W('gå', 'to walk')}${W('båt', 'boat')}</td></tr>
-</table>
-${TIP('<b>u and y</b> are the hardest vowels for English speakers. Both use rounded lips. For <b>y</b>, say <i>ee</i> and then round your lips without moving your tongue. Practise <span lang="nb">du – by – hus – ny</span> slowly.')}`
-    },
-    {
-      title: 'Consonants that behave differently',
-      html: `
-<h2>Consonants that behave differently</h2>
-<p>Most consonants sound like they do in English. These are the ones that do not.</p>
-<table>
-<tr><th>Spelling</th><th>Sounds like</th><th>Examples</th></tr>
-<tr><td class="big">j</td><td><i>y</i> in <i>yes</i></td><td>${W('ja', 'yes')}${W('jente', 'girl')}</td></tr>
-<tr><td class="big">kj</td><td>a soft <i>h</i>, like <i>h</i> in <i>huge</i>. The letter <b>k</b> also sounds like this before <b>i</b> and <b>y</b>.</td><td>${W('kjøre', 'to drive')}${W('kino', 'cinema')}</td></tr>
-<tr><td class="big">sj</td><td><i>sh</i> in <i>ship</i>. Also written <b>skj</b>, and <b>sk</b> before <b>i</b> or <b>y</b>.</td><td>${W('sjø', 'sea')}${W('skje', 'spoon')}${W('ski', 'ski')}</td></tr>
-<tr><td class="big">hj</td><td>the <b>h</b> is silent, so it sounds like <i>y</i></td><td>${W('hjem', 'home')}${W('hjelp', 'help')}</td></tr>
-<tr><td class="big">gj</td><td>the <b>g</b> is silent, so it sounds like <i>y</i></td><td>${W('gjøre', 'to do')}</td></tr>
-<tr><td class="big">hv</td><td>the <b>h</b> is silent, so it sounds like <i>v</i></td><td>${W('hva', 'what')}${W('hvit', 'white')}</td></tr>
-<tr><td class="big">ng</td><td><i>ng</i> in <i>sing</i>, with no hard <i>g</i> after it</td><td>${W('lang', 'long')}${W('seng', 'bed')}</td></tr>
-<tr><td class="big">r</td><td>never the English <i>r</i>. Roll it with the tip of your tongue, or make it at the back of your throat. Both are correct.</td><td>${W('rød', 'red')}${W('rom', 'room')}</td></tr>
-</table>
-<p class="tip">A letter that is <b>written but not pronounced</b> is called a <b>silent letter</b> (<span lang="nb">stum bokstav</span>). Silent letters are common in <b>hj-, gj-</b> and <b>hv-</b> words.</p>`
-    },
-    {
-      title: 'Long and short vowels, and stress',
-      html: `
-<h2>Long and short vowels</h2>
-<p>This is the most useful sound rule in Norwegian, and it also helps with spelling.</p>
-<div class="rule"><span class="hl">vowel + one consonant</span> → the vowel is <b>long</b><br><span class="hl">vowel + two consonants</span> (for example a double letter) → the vowel is <b>short</b></div>
-<p>Compare these pairs. They differ only in vowel length, and they mean different things.</p>
-<table>
-<tr><th>Long vowel</th><th>Short vowel</th></tr>
-<tr><td>${W('tak', 'roof')}</td><td>${W('takk', 'thanks')}</td></tr>
-<tr><td>${W('mat', 'food')}</td><td>${W('matt', 'tired, weak')}</td></tr>
-<tr><td>${W('hat', 'hate')}</td><td>${W('hatt', 'hat')}</td></tr>
-</table>
-<p>A double consonant is <b>not</b> pronounced twice. It is one consonant sound, and it tells you the vowel before it is short.</p>
-<h2>Stress</h2>
-${TERM('Syllable', 'staving', 'one "beat" in a word. <i>hus</i> has one syllable, <i>sykkel</i> (bicycle) has two (syk-kel), and <i>sjokolade</i> (chocolate) has four (sjo-ko-la-de).')}
-${TERM('Stress', 'trykk', 'the syllable you say a little louder and longer.')}
-<p>In most Norwegian words, the stress is on the <b>first syllable</b>: <b>SYK</b>kel, <b>NOR</b>sk, <b>VIN</b>ter, <b>SNØ</b>mann. Words borrowed from other languages sometimes have stress elsewhere, like <b>ba<u>NAN</u></b>.</p>
-<p>Listen: ${W('sykkel', 'bicycle')} ${W('norsk', 'Norwegian')} ${W('snømann', 'snowman')}</p>
-${TIP('Norwegian also has two <b>word tones</b> (a kind of melody in the word). Do not worry about them yet. Getting vowels, consonants and stress right will already make you easy to understand.')}`
-    },
-    {
-      title: 'Word list: module 1',
-      html: `
-<h2>Word list</h2>
-<p>These are all the words from this module. Say each one out loud after you hear it.</p>
-<p>${[
-  ['hus', 'house'], ['by', 'city'], ['ny', 'new'], ['snø', 'snow'], ['brød', 'bread'], ['gå', 'to walk'],
-  ['båt', 'boat'], ['bok', 'book'], ['sko', 'shoe'], ['jente', 'girl'], ['kino', 'cinema'], ['kjøre', 'to drive'],
-  ['sjø', 'sea'], ['ski', 'ski'], ['hjem', 'home'], ['hva', 'what'], ['lang', 'long'], ['tak', 'roof'],
-  ['takk', 'thanks'], ['vinter', 'winter'], ['sykkel', 'bicycle']
-].map(([a, b]) => W(a, b)).join('')}</p>
-<p>When you are ready, start the practice test. You need <b>80%</b> to unlock the next module.</p>`
-    }
-  ],
-  practice: [
-    mc('How many letters are there in the Norwegian alphabet?', ['26', '27', '29', '31'], '29', 'There are 29: the 26 English letters plus <b>æ, ø</b> and <b>å</b>.'),
-    mc('Which three letters come at the end of the Norwegian alphabet?', ['æ, ø, å', 'ä, ö, å', 'á, é, í', 'ç, ñ, ü'], 'æ, ø, å', 'The Norwegian alphabet ends with <b>æ, ø, å</b>.'),
-    mc('What is a <b>vowel</b>?', ['A sound made with open, free airflow', 'A sound made by blocking the airflow completely', 'A letter that is never pronounced', 'The first letter of a word'], 'A sound made with open, free airflow', 'Vowels are made with open airflow: a, e, i, o, u, y, æ, ø, å.'),
-    mc('Which of these is a <b>consonant</b>?', ['k', 'æ', 'y', 'o'], 'k', 'The nine vowels are a e i o u y æ ø å. Everything else, including <b>k</b>, is a consonant.'),
-    ls('hus', 'Listen. Which word do you hear?', ['hus', 'hos', 'hys', 'his'], 'hus', 'It was <b>hus</b> (house), with the rounded <b>u</b> sound.'),
-    mc('Which word starts with the English <i>sh</i> sound?', ['ski', 'kino', 'bil', 'ja'], 'ski', '<b>sk</b> before <b>i</b> or <b>y</b> sounds like <i>sh</i>. So <i>ski</i> sounds like "shee".'),
-    mc('Which spelling has a silent <b>h</b>?', ['hjem', 'hus', 'hund', 'hage'], 'hjem', 'In <b>hj-</b> the <b>h</b> is silent: <i>hjem</i> sounds like "yem".'),
-    mc('The Norwegian <b>j</b> in <i>ja</i> sounds like which English letter?', ['y (as in yes)', 'j (as in jam)', 'h (as in hot)', 'g (as in go)'], 'y (as in yes)', '<b>ja</b> is pronounced "ya".'),
-    mt('Match each Norwegian vowel to the English word it sounds like.', [['å', 'saw'], ['ø', 'fur'], ['æ', 'cat'], ['i', 'see']], '<b>å</b> = saw, <b>ø</b> = fur (without the r), <b>æ</b> = cat, <b>i</b> = see.'),
-    mc('Is the vowel in <i>takk</i> (thanks) long or short?', ['Short, because k is doubled', 'Long, because k is doubled', 'Long, because there are two syllables', 'Silent'], 'Short, because k is doubled', 'Vowel + two consonants → short vowel. Compare <i>tak</i> (roof), which has a long vowel.'),
-    mc('Which word means <b>thanks</b>?', ['takk', 'tak', 'tack', 'taak'], 'takk', '<b>takk</b> = thanks (short a). <b>tak</b> = roof (long a).'),
-    mc('Where is the stress usually placed in Norwegian words?', ['On the first syllable', 'On the last syllable', 'On the second syllable', 'Always on a vowel'], 'On the first syllable', 'Stress is usually on the first syllable: <b>SYK</b>kel, <b>VIN</b>ter.'),
-    ty('Listen to the word and type it. Use the buttons below if you do not have æ, ø or å on your keyboard.', 'snø', 'The word was <b>snø</b> (snow).', 'snø'),
-    ls('kino', 'Listen. What does this word mean?', ['cinema', 'kitchen', 'child', 'chin'], 'cinema', '<b>kino</b> = cinema. The <b>k</b> before <b>i</b> sounds like a soft <i>h</i> ("hee-noo").'),
-    mc('How is <b>hva</b> (what) pronounced?', ['"va"', '"hwa"', '"hav"', '"ha"'], '"va"', 'In <b>hv-</b> the <b>h</b> is silent. <i>hva</i> sounds like "va".'),
-    mc('What does <b>ng</b> sound like in <i>lang</i> (long)?', ['Like <i>ng</i> in <i>sing</i>, no hard g', 'Like <i>ng</i> in <i>finger</i>, with a hard g', 'Like a plain <i>n</i>', 'Like <i>nk</i>'], 'Like <i>ng</i> in <i>sing</i>, no hard g', 'Norwegian <b>ng</b> is always the soft sound as in <i>sing</i>.')
-  ]
-},
+  /* steps */
+  const note = (title, html, icon) => ({ k: 'note', title, html, icon });
+  const mc = (q, opts, a, why, big) => ({ k: 'mc', q, opts, a, why, big });
+  const hearMC = (word, q, opts, a, why) => ({ k: 'mc', say: word, q, opts, a, why });
+  const ty = (q, a, why, big) => ({ k: 'type', q, a: Array.isArray(a) ? a : [a], why, big });
+  const bank = (q, answer, extra, why, sayIt) => ({
+    k: 'bank', q, say: sayIt || null, a: [answer],
+    tiles: answer.replace(/[.,!?]/g, '').split(/\s+/).concat(extra || []), why
+  });
+  const match = (q, pairs, why) => ({ k: 'match', q, pairs, why });
 
-/* ───────────────────────── MODULE 2 ───────────────────────── */
-{
-  id: 2,
-  title: 'Nouns and gender: en, ei, et',
-  blurb: 'What a noun is, and the three small words that mean "a" in Norwegian.',
-  lessons: [
-    {
-      title: 'What is a noun?',
-      html: `
-<h2>What is a noun?</h2>
-${TERM('Noun', 'substantiv', 'a word that names a <b>person</b>, an <b>animal</b>, a <b>place</b>, a <b>thing</b> or an <b>idea</b>.')}
-<p>Nouns are the "naming" words. If you can put <i>a</i> or <i>the</i> in front of it in English, it is probably a noun.</p>
-<table>
-<tr><th>Type</th><th>Examples</th></tr>
-<tr><td>person</td><td>${W('gutt', 'boy')}${W('lærer', 'teacher')}${W('venn', 'friend')}</td></tr>
-<tr><td>animal</td><td>${W('katt', 'cat')}${W('hund', 'dog')}</td></tr>
-<tr><td>place</td><td>${W('by', 'city')}${W('land', 'country')}</td></tr>
-<tr><td>thing</td><td>${W('bok', 'book')}${W('bil', 'car')}${W('stol', 'chair')}</td></tr>
-</table>
-<p>Words that are <b>not</b> nouns, for comparison:</p>
-<p>${W('spise', 'to eat (action)')}${W('stor', 'big (describes)')}${W('rød', 'red (describes)')}</p>
-<p>Actions are called <b>verbs</b> and describing words are called <b>adjectives</b>. We will learn those in later modules.</p>`
-    },
-    {
-      title: 'Three genders',
-      html: `
-<h2>Every noun has a gender</h2>
-${TERM('Gender', 'kjønn', 'a category that every noun belongs to. In Norwegian, nouns are <b>masculine</b>, <b>feminine</b> or <b>neuter</b>. This has nothing to do with whether the thing is male or female. A table is not "male" or "female", but it still has a grammatical gender.')}
-<p>The gender decides which small word you use for <b>a / an</b>:</p>
-${TERM('Article', 'artikkel', 'a small word in front of a noun, like <i>a</i>, <i>an</i> or <i>the</i> in English. The Norwegian words for <i>a / an</i> are:')}
-<table>
-<tr><th>Gender</th><th>Word for "a / an"</th><th>Example</th></tr>
-<tr><td>masculine</td><td>${G('en')}</td><td>${W('en bil', 'a car')}</td></tr>
-<tr><td>feminine</td><td>${G('ei')}</td><td>${W('ei jente', 'a girl')}</td></tr>
-<tr><td>neuter</td><td>${G('et')}</td><td>${W('et hus', 'a house')}</td></tr>
-</table>
-<p>So <b>en</b>, <b>ei</b> and <b>et</b> all mean <i>a / an</i>. Which one you use depends on the noun.</p>
-${TIP('<b>Always learn the article together with the noun.</b> Learn <i>en bil</i>, <i>ei bok</i>, <i>et hus</i> as one unit. Gender is difficult to guess, so do not try to work it out from the meaning.')}
-<p><b>Good to know:</b> In standard Bokmål, feminine nouns may also use <b>en</b>. Both <i>ei bok</i> and <i>en bok</i> are correct. We teach <b>ei</b> here so that you recognise it when you hear or read it. Neuter nouns always use <b>et</b>.</p>`
-    },
-    {
-      title: 'Words to learn',
-      html: `
-<h2>Words to learn</h2>
-<p>Learn each noun with its article. Listen and repeat.</p>
-<div class="cols">
-<div><h3>${G('en')} masculine</h3>
-${W('en mann', 'a man')}${W('en gutt', 'a boy')}${W('en bil', 'a car')}${W('en stol', 'a chair')}${W('en katt', 'a cat')}${W('en hund', 'a dog')}${W('en venn', 'a friend')}${W('en dag', 'a day')}${W('en sykkel', 'a bicycle')}${W('en by', 'a city')}</div>
-<div><h3>${G('ei')} feminine</h3>
-${W('ei jente', 'a girl')}${W('ei dame', 'a lady')}${W('ei bok', 'a book')}${W('ei jakke', 'a jacket')}${W('ei klokke', 'a clock')}${W('ei uke', 'a week')}${W('ei seng', 'a bed')}${W('ei hånd', 'a hand')}</div>
-<div><h3>${G('et')} neuter</h3>
-${W('et hus', 'a house')}${W('et barn', 'a child')}${W('et eple', 'an apple')}${W('et land', 'a country')}${W('et bord', 'a table')}${W('et vindu', 'a window')}${W('et brød', 'a loaf of bread')}${W('et år', 'a year')}</div>
-</div>
-${TIP('Say the full phrase aloud, for example "<span lang="nb">en bil</span>", not just "<span lang="nb">bil</span>". That is how the gender sticks in your memory.')}`
-    }
-  ],
-  practice: [
-    mc('What is a <b>noun</b>?', ['A word that names a person, animal, place, thing or idea', 'A word that describes an action', 'A word that describes how something looks', 'A small word like <i>and</i> or <i>but</i>'], 'A word that names a person, animal, place, thing or idea', 'A noun (<i>substantiv</i>) names things. Examples: <i>katt</i>, <i>by</i>, <i>bok</i>.'),
-    mc('Which of these words is a <b>noun</b>?', ['stol (chair)', 'spise (to eat)', 'rød (red)', 'stor (big)'], 'stol (chair)', '<b>stol</b> names a thing, so it is a noun. <i>spise</i> is an action, and <i>rød</i> and <i>stor</i> describe things.'),
-    mc('Which of these words is <b>not</b> a noun?', ['hund (dog)', 'land (country)', 'stor (big)', 'venn (friend)'], 'stor (big)', '<b>stor</b> describes something, so it is not a noun.'),
-    mc('How many genders do Norwegian nouns have in Bokmål?', ['One', 'Two', 'Three', 'Four'], 'Three', 'Masculine (<b>en</b>), feminine (<b>ei</b>) and neuter (<b>et</b>).'),
-    mc('What do <b>en</b>, <b>ei</b> and <b>et</b> all mean in English?', ['a / an', 'the', 'one hundred', 'and'], 'a / an', 'They are all articles meaning <i>a / an</i>. The noun decides which one you use.'),
-    mc('<b>___ bil</b> (a car)', ['en', 'ei', 'et'], 'en', '<b>en bil</b>. Car is masculine.'),
-    mc('<b>___ hus</b> (a house)', ['en', 'ei', 'et'], 'et', '<b>et hus</b>. House is neuter.'),
-    mc('<b>___ jente</b> (a girl)', ['en', 'ei', 'et'], 'ei', '<b>ei jente</b>. Girl is feminine. (<i>en jente</i> is also allowed in Bokmål.)'),
-    mc('<b>___ eple</b> (an apple)', ['en', 'ei', 'et'], 'et', '<b>et eple</b>. Apple is neuter.'),
-    mc('<b>___ sykkel</b> (a bicycle)', ['en', 'ei', 'et'], 'en', '<b>en sykkel</b>. Bicycle is masculine.'),
-    mc('<b>___ vindu</b> (a window)', ['en', 'ei', 'et'], 'et', '<b>et vindu</b>. Window is neuter.'),
-    mt('Match each Norwegian noun to its English meaning.', [['bok', 'book'], ['hund', 'dog'], ['vindu', 'window'], ['uke', 'week'], ['barn', 'child']], 'bok = book, hund = dog, vindu = window, uke = week, barn = child.'),
-    ty('Write "a book" in Norwegian, with the article.', ['ei bok', 'en bok'], '<b>ei bok</b>, or <b>en bok</b>. Both are correct in Bokmål, because feminine nouns can take <i>en</i>.'),
-    ty('Write "a house" in Norwegian, with the article.', 'et hus', '<b>et hus</b>. House is neuter, so it always uses <i>et</i>.'),
-    ls('et barn', 'Listen. What do you hear?', ['a child', 'a boy', 'a house', 'a bed'], 'a child', '<b>et barn</b> = a child.'),
-    mc('Why should you learn the article together with each noun?', ['Because the gender is hard to guess from the meaning', 'Because Norwegian has no other words for "a"', 'Because articles are always pronounced louder', 'Because it makes the word shorter'], 'Because the gender is hard to guess from the meaning', 'A table or a book has no real gender, so you have to learn it: <i>en stol</i>, <i>ei bok</i>, <i>et bord</i>.'),
-    mc('Which of these is <b>also</b> correct in standard Bokmål?', ['en bok', 'et bok', 'ei hus', 'en barn'], 'en bok', 'Feminine nouns may take <b>en</b>, so <i>en bok</i> is fine. Neuter nouns always take <b>et</b>.')
-  ]
-},
+  /* lesson spec → lesson. groups: items are taught (cards) in small groups, each followed by practice. */
+  function lesson(id, title, icon, spec) {
+    const items = (spec.groups || []).flatMap(g => g.items);
+    return { id, title, icon, items, spec };
+  }
 
-/* ───────────────────────── MODULE 3 ───────────────────────── */
-{
-  id: 3,
-  title: 'The, and more than one',
-  blurb: 'How to say "the car" and "the cars", and how to make plurals.',
-  lessons: [
-    {
-      title: 'Singular, plural, a and the',
-      html: `
-<h2>Four forms of every noun</h2>
-<p>Every noun can appear in four forms. Here are the grammar words for them, and what they mean.</p>
-${TERM('Singular', 'entall', 'one of something: <i>a car</i>, <i>the car</i>.')}
-${TERM('Plural', 'flertall', 'more than one: <i>cars</i>, <i>the cars</i>.')}
-${TERM('Indefinite form', 'ubestemt form', 'any one, not a particular thing: <i>a car</i>, <i>cars</i>. In Norwegian: <i>en bil</i>, <i>biler</i>.')}
-${TERM('Definite form', 'bestemt form', 'a particular thing that we both know about: <i>the car</i>, <i>the cars</i>. In Norwegian: <i>bilen</i>, <i>bilene</i>.')}
+  /* ───────── UNIT 1: WELCOME ───────── */
+  const cognates = [
+    I('hus', 'house', '🏠'), I('bok', 'book', '📖'), I('fisk', 'fish', '🐟'), I('vinter', 'winter', '❄️'),
+    I('fot', 'foot', '🦶'), I('hånd', 'hand', '✋')
+  ];
+
+  const u1 = {
+    id: 'u1', title: 'Velkommen', sub: 'Welcome', blurb: 'A first look at Norwegian.',
+    lessons: [
+      lesson('u1l1', 'Hei og velkommen!', '👋', {
+        welcome: true,
+        build: () => [
+          note('Hei og velkommen! (Hello and welcome!) 👋', `
+<p>You are about to learn <b>Norwegian</b>. It is a language of fjords, mountains, long summer evenings and northern lights, spoken by around five million people.</p>
+<p>We will go slowly, one small step at a time. You will <b>always see and hear a new word before you are asked about it</b>. If you make a mistake, that is perfectly fine. The question simply comes back at the end of the lesson until it sticks.</p>
+<p>Say the words out loud as you go. That is the fastest way to learn them.</p>`),
+          note('What kind of language is Norwegian?', `
+<p>Norwegian belongs to the <b>Germanic</b> language family. That is the same family as <b>English</b>, German and Dutch, so you already have a head start.</p>
+<p>More exactly, Norwegian is a <b>North Germanic</b> (or <i>Scandinavian</i>) language. It grew out of <b>Old Norse</b>, the language of the Vikings.</p>
+<p>Its closest relatives are <b>Swedish</b> and <b>Danish</b>. Speakers of the three can often understand each other. Icelandic and Faroese are more distant cousins.</p>`),
+          note('Words you almost know already', `
+<p>Because English and Norwegian are relatives, many words look and sound alike. Listen to these:</p>
+<p>${W('hus', 'house')}${W('bok', 'book')}${W('fisk', 'fish')}${W('vinter', 'winter')}${W('fot', 'foot')}${W('hånd', 'hand')}</p>
+<p>English also borrowed words from the Vikings: <i>egg</i>, <i>sky</i>, <i>knife</i>, <i>window</i>, <i>husband</i> and <i>take</i> all come from Old Norse. And from Norwegian itself we got <i>ski</i>, <i>fjord</i>, <i>slalom</i> and <i>troll</i>.</p>`),
+          note('Two ways of writing Norwegian', `
+<p>Norway has <b>two official written standards</b>:</p>
+<p><b>Bokmål</b> (“book language”) is used by most Norwegians. <b>Nynorsk</b> (“new Norwegian”) was built in the 1800s from country dialects and is used by roughly one in ten.</p>
+<p>In this course we learn <b>Bokmål</b>.</p>
+<p>Spoken Norwegian also varies a lot from place to place. People proudly speak their own dialects. We teach the pronunciation that is easiest to understand all over the country.</p>`),
+          note('How this course works', `
+<p><b>1.</b> Each lesson is short. First you meet a few new words or sounds.</p>
+<p><b>2.</b> Then you practise them: listening, matching, typing, and building sentences.</p>
+<p><b>3.</b> Mistakes come back at the end of the lesson.</p>
+<p><b>4.</b> Little notes explain how the language works, in plain English.</p>
+<p>The first unit is the <b>alphabet</b>. Then we count, greet people, and learn our first words. Let us warm up with a few words you just met.</p>`),
+          match('Match the Norwegian words with their English meaning.', [['hus', 'house'], ['bok', 'book'], ['fisk', 'fish'], ['vinter', 'winter']], 'These words are close relatives of the English ones.'),
+          { k: 'mc', say: 'hånd', q: 'Tap what you hear.', opts: ['hånd', 'fot', 'fisk', 'hus'], a: 'hånd', why: 'That was <b>hånd</b>, “hand”.' },
+          mc('Which is the Norwegian word for <b>“foot”</b>?', ['fot', 'hånd', 'bok', 'vinter'], 'fot', '<b>fot</b> means “foot”.')
+        ]
+      })
+    ]
+  };
+
+  /* ───────── UNIT 2: ALPHABET ───────── */
+  const alpha = 'abcdefghijklmnopqrstuvwxyzæøå'.split('').map(c => `<span class="${'æøå'.includes(c) ? 'newl' : ''}" lang="nb">${c}</span>`).join('');
+
+  const u2 = {
+    id: 'u2', title: 'Alfabetet', sub: 'The alphabet', blurb: 'Letters and sounds.',
+    lessons: [
+      lesson('u2l1', 'The alphabet', '🔤', {
+        build: () => [
+          note('29 letters', `
+<p>Norwegian uses the same letters as English, plus <b>three extra ones</b> at the end: <b>æ, ø</b> and <b>å</b>. That makes <b>29 letters</b> in total.</p>
+<div class="alpha">${alpha}</div>
+<p>The letters <b>c, q, w, x</b> and <b>z</b> only appear in words borrowed from other languages.</p>`),
+          note('Letters and sounds', `
+<p>In English, the same letters can sound very different (<i>though</i>, <i>through</i>, <i>tough</i>). Norwegian is much more regular: <b>once you know the sounds, you can read almost any word out loud.</b></p>
+<p>Letters are split into two groups:</p>
+${TERM('Vowels', 'vokaler', 'sounds you can sing and hold, like “ah” or “oo”. Norwegian has nine vowel letters: <b>a e i o u y æ ø å</b>.')}
+${TERM('Consonants', 'konsonanter', 'all the other letters. You make them by squeezing or stopping the air, like <b>b</b>, <b>k</b> or <b>s</b>.')}`),
+          mc('How many letters are there in the Norwegian alphabet?', ['26', '27', '29', '31'], '29', 'There are 29: the 26 English letters plus <b>æ, ø</b> and <b>å</b>.'),
+          mc('Which three letters are extra in Norwegian?', ['æ, ø, å', 'ä, ö, å', 'á, é, í', 'ç, ñ, ü'], 'æ, ø, å', 'The Norwegian alphabet ends with <b>æ ø å</b>.'),
+          mc('Which of these is a <b>vowel</b>?', ['å', 'k', 't', 's'], 'å', '<b>å</b> is one of the nine vowels. The others are consonants.'),
+          mc('Which of these is a <b>consonant</b>?', ['k', 'æ', 'y', 'o'], 'k', 'The nine vowels are a e i o u y æ ø å. Everything else is a consonant.')
+        ]
+      }),
+      lesson('u2l2', 'Vowels: a e i o u', '🅰️', {
+        groups: [
+          {
+            pre: ['Five familiar vowels', `<p>Let us meet the first five vowels. Each one has a <b>long</b> and a <b>short</b> version. Listen carefully and repeat out loud.</p>`],
+            items: [
+              I('dag', 'day', '🌅', { tip: '<b>a</b> sounds like the <i>a</i> in <i>father</i>.' }),
+              I('se', 'to see', '👀', { tip: '<b>e</b> sounds like <i>ay</i> in <i>say</i>, but held steady, with no glide.' }),
+              I('vi', 'we', '👫', { tip: '<b>i</b> sounds like <i>ee</i> in <i>see</i>.' })
+            ]
+          },
+          {
+            pre: ['Two trickier ones', `<p>The vowel <b>o</b> is usually pronounced like English “<i>oo</i>”. And <b>u</b> has no English match at all, so take your time.</p>`],
+            items: [
+              I('sko', 'shoe', '👟', { tip: '<b>o</b> is usually “<i>oo</i>” as in <i>moon</i>. So <i>sko</i> sounds like “skoo”.' }),
+              I('hus', 'house', '🏠', { tip: '<b>u</b>: round your lips as if to say “oo”, then try to say “ee” instead.' })
+            ],
+            post: ['Practising the Norwegian u', `<p>The Norwegian <b>u</b> is the hardest vowel for English speakers. Round your lips like you are whistling, and say “ee”.</p><p>Say it slowly: ${W('hus', 'house')} ${W('du', 'you')}</p>`]
+          }
+        ]
+      }),
+      lesson('u2l3', 'Vowels: y æ ø å', '🔡', {
+        groups: [
+          {
+            pre: ['Meet the special vowels', `<p>These four vowels do not exist in English, except <b>æ</b>, which is close. <b>y</b>, <b>ø</b> and <b>å</b> need a little practice.</p>`],
+            items: [
+              I('by', 'city', '🏙️', { tip: '<b>y</b>: say “ee” and then round your lips without moving your tongue. Like German <i>ü</i> or French <i>u</i>.' }),
+              I('vær', 'weather', '🌦️', { tip: '<b>æ</b> sounds like the <i>a</i> in <i>cat</i>, stretched out.' }),
+              I('snø', 'snow', '❄️', { tip: '<b>ø</b> sounds like <i>ur</i> in British <i>fur</i>, but without the r.' })
+            ]
+          },
+          {
+            items: [
+              I('brød', 'bread', '🍞', { tip: 'Another <b>ø</b>. The <b>d</b> at the end is silent here: “brur”.' }),
+              I('gå', 'to walk', '🚶', { tip: '<b>å</b> sounds like <i>aw</i> in <i>saw</i>.' }),
+              I('båt', 'boat', '⛵', { tip: 'Another <b>å</b>: “bawt”.' })
+            ]
+          }
+        ]
+      }),
+      lesson('u2l4', 'Consonants that surprise you', '🗣️', {
+        groups: [
+          {
+            pre: ['Most consonants are easy', `<p>Most Norwegian consonants sound like English ones. These few are different, so they get their own lesson.</p>`],
+            items: [
+              I('ja', 'yes', '✅', { tip: '<b>j</b> sounds like English <i>y</i> in <i>yes</i>. So <i>ja</i> is “ya”.' }),
+              I('kino', 'cinema', '🎬', { tip: '<b>k</b> before <b>i</b> or <b>y</b>, and <b>kj</b>, make a soft <i>h</i> like in <i>huge</i>: “hee-noo”.' }),
+              I('ski', 'ski', '🎿', { tip: '<b>sk</b> before <b>i</b> or <b>y</b>, and <b>sj</b>, sound like English <i>sh</i>. <i>ski</i> is “shee”.' })
+            ]
+          },
+          {
+            items: [
+              I('sjø', 'sea', '🌊', { tip: '<b>sj</b> = <i>sh</i>. So <i>sjø</i> sounds like “shur”.' }),
+              I('lang', 'long', '📏', { tip: '<b>ng</b> sounds like <i>ng</i> in <i>sing</i>. There is no hard <i>g</i> after it.' })
+            ]
+          }
+        ]
+      }),
+      lesson('u2l5', 'Silent letters and r', '🤫', {
+        groups: [
+          {
+            pre: ['Letters you do not say', `<p>In some letter combinations, the first letter is <b>silent</b>. You write it, but you do not pronounce it. This happens with <b>hj-</b>, <b>gj-</b> and <b>hv-</b>.</p>`],
+            items: [
+              I('hjem', 'home', '🏡', { tip: '<b>hj</b>: the <b>h</b> is silent. <i>hjem</i> sounds like “yem”.' }),
+              I('hva', 'what', '❓', { tip: '<b>hv</b>: the <b>h</b> is silent. <i>hva</i> sounds like “va”.' }),
+              I('hjelp', 'help', '🆘', { tip: 'Silent <b>h</b> again: “yelp”.' })
+            ]
+          },
+          {
+            pre: ['The Norwegian r', `<p>The Norwegian <b>r</b> is never the English <i>r</i>. Roll it with the tip of your tongue, or make it at the back of your throat. Both are correct.</p>`],
+            items: [
+              I('hvit', 'white', '⚪', { tip: 'Silent <b>h</b> in <b>hv</b>: “veet”.' }),
+              I('rød', 'red', '🔴', { tip: 'Roll the <b>r</b>. The <b>ø</b> is the “fur” sound, and the final <b>d</b> is silent.' })
+            ]
+          }
+        ]
+      }),
+      lesson('u2l6', 'Long and short vowels', '↔️', {
+        groups: [
+          {
+            pre: ['A rule that helps with spelling', `
+<p>Every vowel can be <b>long</b> or <b>short</b>. A simple rule tells you which:</p>
+<div class="rule"><span class="hl">vowel + one consonant</span> → <b>long</b> vowel<br><span class="hl">vowel + two consonants</span> (like a double letter) → <b>short</b> vowel</div>
+<p>A double letter is <b>not</b> said twice. It only tells you that the vowel before it is short. Compare:</p>
+<p>${W('tak', 'roof')} (long a) &nbsp; ${W('takk', 'thanks')} (short a)</p>
+<p>${W('mat', 'food')} (long a) &nbsp; ${W('matt', 'tired, weak')} (short a)</p>`],
+            items: [
+              I('takk', 'thanks', '🙏', { tip: 'Two k’s: <b>short</b> a.' }),
+              I('tak', 'roof', 'tak', { tip: 'One k: <b>long</b> a.' }),
+              I('mat', 'food', '🍽️', { tip: 'One t: <b>long</b> a.' }),
+              I('matt', 'tired, weak', '😴', { tip: 'Two t’s: <b>short</b> a.' })
+            ]
+          }
+        ],
+        extra: () => [
+          mc('The vowel before a <b>double consonant</b> is…', ['short', 'long', 'silent', 'stressed'], 'short', 'Double consonant → short vowel. That is why <i>takk</i> has a short <b>a</b>.'),
+          mc('Which word has a <b>long</b> vowel?', ['tak', 'takk', 'matt', 'hatt'], 'tak', '<i>tak</i> has one consonant after the vowel, so the <b>a</b> is long.'),
+          mc('Which word has a <b>short</b> vowel?', ['matt', 'mat', 'tak', 'hat'], 'matt', '<i>matt</i> has a double <b>t</b>, so the <b>a</b> is short.'),
+          note('Where is the stress?', `
+<p>In most Norwegian words, you say the <b>first syllable</b> a little louder and longer. A <b>syllable</b> is one “beat” of a word: <i>hus</i> has one, <i>sykkel</i> (bicycle) has two (syk-kel).</p>
+<p>Listen: ${W('sykkel', 'bicycle')} ${W('norsk', 'Norwegian')} ${W('vinter', 'winter')}</p>
+<p>Say the first part strongly: <b>SYK</b>kel, <b>NORSK</b>, <b>VIN</b>ter.</p>`),
+          mc('In most Norwegian words, which syllable is stressed?', ['the first', 'the last', 'the second', 'none'], 'the first', 'Stress usually falls on the first syllable: <b>SYK</b>kel.')
+        ]
+      })
+    ]
+  };
+
+  /* ───────── UNIT 3: NUMBERS ───────── */
+  const u3 = {
+    id: 'u3', title: 'Tall', sub: 'Numbers', blurb: 'Counting from 0 to 20.',
+    lessons: [
+      lesson('u3l1', 'Count 1 to 5', '1️⃣', {
+        groups: [
+          { pre: ['Let us count!', `<p>Norwegian numbers look and sound a lot like English ones. Say each number out loud as you hear it.</p>`], items: [NUM('en', 1, 'one'), NUM('to', 2, 'two', '<b>to</b> sounds like “too” (but with the rounded Norwegian <i>o</i>).'), NUM('tre', 3, 'three')] },
+          { items: [NUM('fire', 4, 'four'), NUM('fem', 5, 'five')], post: ['Say them in a row', `<p>Count out loud: ${W('en', '1')} ${W('to', '2')} ${W('tre', '3')} ${W('fire', '4')} ${W('fem', '5')}</p>`] }
+        ]
+      }),
+      lesson('u3l2', 'Count 6 to 10, and zero', '🔟', {
+        groups: [
+          { pre: ['Six to ten', `<p>Watch out for <b>sju</b>. It starts with <b>sj</b>, which you know from the alphabet unit: it sounds like <i>sh</i>. So <i>sju</i> is “shoo”.</p>`], items: [NUM('seks', 6, 'six'), NUM('sju', 7, 'seven', '<b>sj</b> = <i>sh</i>. Also written <i>syv</i>.'), NUM('åtte', 8, 'eight', 'The <b>å</b> sounds like <i>aw</i>. Two t’s, so a short vowel.')] },
+          { items: [NUM('ni', 9, 'nine'), NUM('ti', 10, 'ten'), NUM('null', 0, 'zero')] }
+        ]
+      }),
+      lesson('u3l3', 'Count 11 to 15', '⏩', {
+        groups: [
+          { pre: ['The teens', `<p>Like English, Norwegian has two special numbers, 11 and 12, followed by the “teens”. In English they end in <b>-teen</b>. In Norwegian, they end in <b>-ten</b>.</p>`], items: [NUM('elleve', 11, 'eleven'), NUM('tolv', 12, 'twelve'), NUM('tretten', 13, 'thirteen', '<b>tre</b> (3) + <b>ten</b>.')] },
+          { items: [NUM('fjorten', 14, 'fourteen', 'Like <i>fire</i> (4), but changed a little.'), NUM('femten', 15, 'fifteen', '<b>fem</b> (5) + <b>ten</b>.')] }
+        ]
+      }),
+      lesson('u3l4', 'Count 16 to 20', '⏭️', {
+        groups: [
+          { pre: ['Keep going', `<p>The pattern continues. <b>16 to 19</b> still end in <b>-ten</b> (or very nearly), and then comes twenty.</p>`], items: [NUM('seksten', 16, 'sixteen'), NUM('sytten', 17, 'seventeen'), NUM('atten', 18, 'eighteen', 'Two t’s, so the vowel is short.')] },
+          { pre: ['Nineteen and twenty', `<p><b>tjue</b> begins with <b>tj</b>, which sounds like the soft “h” of <i>kino</i>. You can also write it <i>tyve</i>.</p>`], items: [NUM('nitten', 19, 'nineteen'), NUM('tjue', 20, 'twenty', '<b>tj</b> is a soft <i>h</i>: “hyoo-eh”. Also written <i>tyve</i>.')] }
+        ]
+      }),
+      lesson('u3l5', 'Number practice', '🎯', { review: 'num', groups: [] })
+    ]
+  };
+
+  /* ───────── UNIT 4: GREETINGS ───────── */
+  const u4 = {
+    id: 'u4', title: 'Hei!', sub: 'Greetings', blurb: 'Saying hello, thanks and your name.',
+    lessons: [
+      lesson('u4l1', 'Hello and goodbye', '👋', {
+        groups: [
+          { pre: ['Hello!', `<p>Time for your first real phrases. <b>Hei</b> is the all-purpose word for hello. You can use it with anyone, any time of day.</p>`], items: [I('hei', 'hi, hello', '👋'), I('god morgen', 'good morning', '🌅'), I('god kveld', 'good evening', '🌆')] },
+          { items: [I('god natt', 'good night', '🌙'), I('ha det', 'goodbye', '🫶', { tip: 'Literally “have it”. Add <b>bra</b> (good) to say <i>ha det bra</i>.' })] }
+        ]
+      }),
+      lesson('u4l2', 'Thanks and sorry', '🙏', {
+        groups: [
+          { pre: ['Being polite', `<p>Norwegians say <b>takk</b> (thanks) a lot. You learned it in the alphabet unit with its short vowel.</p>`], items: [I('takk', 'thanks', '🙏'), I('vær så god', 'you’re welcome; here you are', '🎁', { tip: 'Say it when handing something over, or after someone says <i>takk</i>.' }), I('unnskyld', 'sorry; excuse me', '🙇', { tip: 'Pronounced “oon-shyl”. <b>sk</b> before <b>y</b> sounds like <i>sh</i>.' })] },
+          { items: [I('ja', 'yes', '✅'), I('nei', 'no', '❌'), I('vær så snill', 'please', '🥺')] }
+        ]
+      }),
+      lesson('u4l3', 'What is your name?', '🪪', {
+        groups: [
+          {
+            pre: ['I and you', `<p>Two tiny but important words: <b>jeg</b> (I) and <b>du</b> (you). They are called <b>pronouns</b>, words that stand in for a person.</p>`],
+            items: [I('jeg', 'I', '🙋', { tip: '<b>jeg</b> is said “yai”. The <b>g</b> is silent.' }), I('du', 'you', '👉'), I('heter', 'am called; is called', '🏷️', { tip: 'A <b>verb</b> is an action or state word. <b>heter</b> does not change: <i>jeg heter</i>, <i>du heter</i>.' })]
+          },
+          {
+            pre: ['Your first questions', `<p>You already know <b>hva</b> (what), which is said “va”. So <i>Hva heter du?</i> means “What are you called?”, or “What is your name?”.</p>`],
+            items: [I('Hva heter du?', 'What is your name?', '❓'), I('Jeg heter Anna.', 'My name is Anna.', '🙂', { say: 'Jeg heter Anna' }), I('Hyggelig å møte deg.', 'Nice to meet you.', '🤝')]
+          }
+        ],
+        extra: () => [
+          bank('Translate: “What is your name?”', 'Hva heter du?', ['jeg', 'hei'], 'Hva heter du? = “What are you called?”'),
+          bank('Translate: “My name is Anna.”', 'Jeg heter Anna.', ['du', 'hva'], 'Jeg heter Anna.'),
+          bank('Tap what you hear.', 'Hyggelig å møte deg.', ['heter', 'jeg'], 'Hyggelig å møte deg = “Nice to meet you”.', 'Hyggelig å møte deg')
+        ]
+      }),
+      lesson('u4l4', 'How are you?', '😊', {
+        groups: [
+          {
+            pre: ['A small conversation', `<p>Norwegians use <b>bra</b> (good) for “fine” or “well”. Let us build a tiny conversation.</p>`],
+            items: [I('Hvordan har du det?', 'How are you?', '💬'), I('Jeg har det bra.', 'I am fine.', '😊', { say: 'Jeg har det bra' }), I('Og du?', 'And you?', '🔁')]
+          },
+          { items: [I('Takk, bra!', 'Thanks, good!', '👍'), I('Ha det bra!', 'Goodbye!', '👋')] }
+        ],
+        extra: () => [
+          bank('Translate: “I am fine.”', 'Jeg har det bra.', ['du', 'heter'], '<b>Jeg har det bra</b> literally means “I have it good”.'),
+          bank('Translate: “How are you?”', 'Hvordan har du det?', ['jeg', 'heter'], 'Hvordan har du det?'),
+          bank('Translate: “And you?”', 'Og du?', ['jeg', 'hei'], 'Og du?')
+        ]
+      })
+    ]
+  };
+
+  /* ───────── UNIT 5: FIRST WORDS ───────── */
+  const NOUN_INTRO = note('Nouns, and the little word before them', `
+<p>A <b>noun</b> (<span lang="nb">substantiv</span>) is a word for a <b>person, animal, place or thing</b>: <i>car</i>, <i>dog</i>, <i>girl</i>, <i>house</i>.</p>
+<p>In English, we say <i>a car</i>. In Norwegian, there are three little words for <b>“a”</b>:</p>
 <table>
-<tr><th></th><th>Singular</th><th>Plural</th></tr>
-<tr><th>Indefinite</th><td>${W('en bil', 'a car')}</td><td>${W('biler', 'cars')}</td></tr>
-<tr><th>Definite</th><td>${W('bilen', 'the car')}</td><td>${W('bilene', 'the cars')}</td></tr>
+<tr><td>${G('en')}</td><td>${W('en bil', 'a car')}</td></tr>
+<tr><td>${G('ei')}</td><td>${W('ei bok', 'a book')}</td></tr>
+<tr><td>${G('et')}</td><td>${W('et hus', 'a house')}</td></tr>
 </table>
-<p>The big difference from English: Norwegian does <b>not</b> put a separate word for <i>the</i> in front. Instead, it <b>adds a small ending</b> to the noun.</p>`
-    },
-    {
-      title: '"The": the definite form',
-      html: `
-<h2>Saying "the"</h2>
-<p>To say <i>the</i> in the singular, take the noun and add an ending. The ending depends on the gender, so now you can see why gender matters.</p>
+<p>Which one you use depends on the noun. Every noun belongs to one of three groups, called <b>genders</b> (<span lang="nb">kjønn</span>). It has nothing to do with male and female: a car is not “male”.</p>
+<div class="tip">Do not try to work the gender out. <b>Always learn the little word together with the noun</b>: <i>en bil</i>, <i>ei bok</i>, <i>et hus</i>.</div>`, '🏷️');
+
+  const u5 = {
+    id: 'u5', title: 'Første ord', sub: 'First words', blurb: 'Your first nouns, with en, ei and et.',
+    lessons: [
+      lesson('u5l1', 'En: cars and pets', '🚗', {
+        articles: true,
+        groups: [
+          { pre: NOUN_INTRO, items: [N('en bil', 'a car', '🚗'), N('en hund', 'a dog', '🐶'), N('en katt', 'a cat', '🐱')] },
+          { items: [N('en sykkel', 'a bicycle', '🚲'), N('en fisk', 'a fish', '🐟')] }
+        ]
+      }),
+      lesson('u5l2', 'Et: houses and apples', '🏠', {
+        articles: true,
+        groups: [
+          { pre: ['The word “et”', `<p>Words that use <b>et</b> are called <b>neuter</b>. Many of them are everyday things.</p>`], items: [N('et hus', 'a house', '🏠'), N('et eple', 'an apple', '🍎'), N('et egg', 'an egg', '🥚')] },
+          { items: [N('et tre', 'a tree', '🌳'), N('et barn', 'a child', '🧒')] }
+        ]
+      }),
+      lesson('u5l3', 'Ei: books and girls', '📖', {
+        articles: true,
+        groups: [
+          { pre: ['The word “ei”', `<p>Words that use <b>ei</b> are <b>feminine</b>.</p><div class="tip">In standard Bokmål, you may also say <b>en</b> for feminine words. Both <i>ei bok</i> and <i>en bok</i> are correct. We teach <b>ei</b> so you recognise it when you hear it or read it.</div>`], items: [N('ei bok', 'a book', '📖'), N('ei jente', 'a girl', '👧'), N('ei klokke', 'a clock', '🕐')] },
+          { items: [N('ei seng', 'a bed', '🛏️'), N('ei uke', 'a week', '🗓️')] }
+        ]
+      }),
+      lesson('u5l4', 'People and things', '🧑', {
+        articles: true,
+        groups: [
+          { pre: ['A mix of all three', `<p>Now the three groups are mixed together. Listen carefully and notice the little word each time.</p>`], items: [N('en mann', 'a man', '👨'), N('ei dame', 'a lady', '👩'), N('en stol', 'a chair', '🪑')] },
+          { items: [N('et vindu', 'a window', '🪟'), N('ei jakke', 'a jacket', '🧥')] }
+        ]
+      }),
+      lesson('u5l5', 'Food and drink', '🍞', {
+        articles: true,
+        groups: [
+          { pre: ['At the table', `<p>Time for some food and drink words. Remember to learn each with its little word.</p>`], items: [N('en kaffe', 'a coffee', '☕'), N('et brød', 'a loaf of bread', '🍞'), N('en ost', 'a cheese', '🧀')] },
+          { items: [N('et vann', 'a (glass of) water', '💧'), N('en banan', 'a banana', '🍌')] }
+        ]
+      })
+    ]
+  };
+
+  /* ───────── UNIT 6: THE, AND MORE THAN ONE ───────── */
+  const tfmc = (src, en, opts, a, why) => ({ k: 'mc', big: `<span class="bigword" lang="nb">${src}</span>`, q: `How do you say <b>“${en}”</b>?`, opts, a, why });
+  const tfty = (src, en, a, why) => ({ k: 'type', big: `<span class="bigword" lang="nb">${src}</span>`, q: `Write <b>“${en}”</b> in Norwegian.`, a: Array.isArray(a) ? a : [a], why });
+
+  const u6 = {
+    id: 'u6', title: 'Bestemt form og flertall', sub: '“The” and “more than one”', blurb: 'Saying “the car” and “the cars”.',
+    lessons: [
+      lesson('u6l1', '“The”: one thing', '🔎', {
+        groups: [
+          {
+            pre: ['“The” goes at the end', `
+<p>In English, you put a word <i>before</i> the noun: <i>the car</i>. Norwegian does something different. It <b>adds a small ending</b> to the noun.</p>
+<p>This is called the <b>definite form</b> (<span lang="nb">bestemt form</span>). It means a particular thing that we both know about.</p>
 <table>
-<tr><th>Gender</th><th>Indefinite (a)</th><th>Definite (the)</th><th>Ending</th></tr>
-<tr><td>${G('en')}</td><td>${W('en bil', 'a car')}</td><td>${W('bilen', 'the car')}</td><td class="hl">-en</td></tr>
-<tr><td>${G('ei')}</td><td>${W('ei jente', 'a girl')}</td><td>${W('jenta', 'the girl')}</td><td class="hl">-a</td></tr>
-<tr><td>${G('et')}</td><td>${W('et hus', 'a house')}</td><td>${W('huset', 'the house')}</td><td class="hl">-et</td></tr>
+<tr><th>a …</th><th>the …</th><th>ending</th></tr>
+<tr><td>${G('en')} en bil</td><td><b>bilen</b></td><td class="hl">-en</td></tr>
+<tr><td>${G('ei')} ei jente</td><td><b>jenta</b></td><td class="hl">-a</td></tr>
+<tr><td>${G('et')} et hus</td><td><b>huset</b></td><td class="hl">-et</td></tr>
 </table>
-<div class="rule"><span lang="nb">en bil → bil<b class="hl">en</b></span> &nbsp;·&nbsp; <span lang="nb">ei bok → bok<b class="hl">a</b></span> &nbsp;·&nbsp; <span lang="nb">et hus → hus<b class="hl">et</b></span></div>
-<p>More examples:</p>
-<p>${W('stolen', 'the chair')}${W('hunden', 'the dog')}${W('boka', 'the book')}${W('klokka', 'the clock')}${W('eplet', 'the apple')}${W('barnet', 'the child')}${W('bordet', 'the table')}</p>
-<p>If a noun already ends in <b>-e</b>, you only add the last letter: masculine words add <b>-n</b> and neuter words add <b>-t</b>. For example <span lang="nb">en gate → gaten</span> (the street) and <span lang="nb">et eple → eplet</span> (the apple). Feminine words ending in <b>-e</b> swap the <b>-e</b> for <b>-a</b>: <span lang="nb">jente → jent<b>a</b></span>, <span lang="nb">klokke → klokk<b>a</b></span>.</p>
-${TIP('In standard Bokmål, feminine nouns can also take <b>-en</b> in the definite: <i>boka</i> or <i>boken</i>, <i>jenta</i> or <i>jenten</i>. Both are correct. We use <b>-a</b> here because it is very common in speech. If you use <i>en</i> for feminine words, use <b>-en</b> to match.')}`
-    },
-    {
-      title: 'More than one: the plural',
-      html: `
-<h2>Making plurals</h2>
-<p>The plural <b>indefinite</b> means "more than one", without saying which ones: <i>cars</i>, <i>girls</i>, <i>houses</i>.</p>
+<p>This is why the gender matters: it decides the ending.</p>`],
+            items: [I('bilen', 'the car', '🚗', { tip: 'en bil → bil<b>en</b>' }), I('huset', 'the house', '🏠', { tip: 'et hus → hus<b>et</b>' }), I('jenta', 'the girl', '👧', { tip: 'ei jente → jent<b>a</b>. (<i>jenten</i> is also correct.)' })]
+          },
+          { items: [I('hunden', 'the dog', '🐶', { tip: 'en hund → hund<b>en</b>' }), I('eplet', 'the apple', '🍎', { tip: 'et eple → epl<b>et</b>' }), I('boka', 'the book', '📖', { tip: 'ei bok → bok<b>a</b>. (<i>boken</i> is also correct.)' })] }
+        ],
+        extra: () => [
+          tfmc('en katt', 'the cat', ['katten', 'kattet', 'katta'], 'katten', 'en katt → kat<b>ten</b>: <b>en</b>-words add <b>-en</b>.'),
+          tfmc('et barn', 'the child', ['barnet', 'barnen', 'barna'], 'barnet', 'et barn → barn<b>et</b>: <b>et</b>-words add <b>-et</b>.'),
+          tfty('en fisk', 'the fish', 'fisken', 'en fisk → fisk<b>en</b>.'),
+          tfty('et egg', 'the egg', 'egget', 'et egg → egg<b>et</b>.'),
+          tfty('ei seng', 'the bed', ['senga', 'sengen'], 'ei seng → seng<b>a</b> (or seng<b>en</b>).')
+        ]
+      }),
+      lesson('u6l2', 'More than one', '👯', {
+        groups: [
+          {
+            pre: ['The plural', `
+<p>More than one of something is called the <b>plural</b> (<span lang="nb">flertall</span>). One of something is the <b>singular</b> (<span lang="nb">entall</span>).</p>
 <table>
-<tr><th>Gender</th><th>Rule</th><th>Examples</th></tr>
-<tr><td>${G('en')}</td><td>add <span class="hl">-er</span></td><td>${W('en bil → biler', 'cars')}${W('en katt → katter', 'cats')}${W('en stol → stoler', 'chairs')}</td></tr>
-<tr><td>${G('ei')}</td><td>add <span class="hl">-er</span></td><td>${W('ei jente → jenter', 'girls')}${W('ei klokke → klokker', 'clocks')}${W('ei uke → uker', 'weeks')}</td></tr>
-<tr><td>${G('et')}</td><td>add <span class="hl">nothing</span> (the word stays the same)</td><td>${W('et hus → hus', 'houses')}${W('et barn → barn', 'children')}${W('et bord → bord', 'tables')}</td></tr>
+<tr><th>Gender</th><th>Rule</th><th>Example</th></tr>
+<tr><td>${G('en')}</td><td>add <span class="hl">-er</span></td><td>en bil → <b>biler</b></td></tr>
+<tr><td>${G('ei')}</td><td>add <span class="hl">-er</span></td><td>ei jente → <b>jenter</b></td></tr>
+<tr><td>${G('et')}</td><td>add <span class="hl">nothing</span></td><td>et hus → <b>hus</b></td></tr>
 </table>
-<p>Neuter words that end in <b>-e</b> add <b>-r</b>: <span lang="nb">et eple → epler</span> (apples).</p>
-<p>When the singular already ends in <b>-e</b>, add only <b>-r</b>: <span lang="nb">ei jakke → jakker</span>.</p>
-<h3>A few irregular plurals</h3>
-<p>Some very common words change their vowel. These you simply learn by heart:</p>
-<p>${W('en mann → menn', 'men')}${W('ei bok → bøker', 'books')}${W('ei hånd → hender', 'hands')}</p>
-${TIP('Spoken numbers use the plural: <span lang="nb">to biler</span> (two cars), <span lang="nb">tre hus</span> (three houses). You will meet numbers soon.')}`
-    },
-    {
-      title: '"The" in the plural',
-      html: `
-<h2>Saying "the" in the plural</h2>
-<p>For the plural definite ("the cars", "the girls"), take the <b>plural form</b> and add <span class="hl">-ene</span>. This works for all three genders.</p>
-<div class="rule"><span lang="nb">biler → bil<b class="hl">ene</b></span> &nbsp;·&nbsp; <span lang="nb">jenter → jent<b class="hl">ene</b></span> &nbsp;·&nbsp; <span lang="nb">hus → hus<b class="hl">ene</b></span></div>
-<table>
-<tr><th>Singular</th><th>Plural</th><th>Plural + the</th></tr>
-<tr><td>${W('en bil', 'a car')}</td><td>${W('biler', 'cars')}</td><td>${W('bilene', 'the cars')}</td></tr>
-<tr><td>${W('ei jente', 'a girl')}</td><td>${W('jenter', 'girls')}</td><td>${W('jentene', 'the girls')}</td></tr>
-<tr><td>${W('et hus', 'a house')}</td><td>${W('hus', 'houses')}</td><td>${W('husene', 'the houses')}</td></tr>
-<tr><td>${W('et eple', 'an apple')}</td><td>${W('epler', 'apples')}</td><td>${W('eplene', 'the apples')}</td></tr>
-<tr><td>${W('ei bok', 'a book')}</td><td>${W('bøker', 'books')}</td><td>${W('bøkene', 'the books')}</td></tr>
-</table>
-<p>Here is the whole pattern for <b>bil</b> in one place:</p>
+<p>Neuter words that end in <b>-e</b> add <b>-r</b>: <i>et eple → epler</i>.</p>`],
+            items: [I('biler', 'cars', '🚗🚗', { tip: 'en bil → bil<b>er</b>' }), I('jenter', 'girls', '👧👧', { tip: 'ei jente → jent<b>er</b>' }), I('hus', 'houses', '🏠🏠', { tip: 'et hus → <b>hus</b>: neuter nouns stay the same.' })]
+          },
+          {
+            pre: ['A few irregular ones', `<p>A few very common words change their vowel in the plural. Just learn these by heart.</p>`],
+            items: [I('epler', 'apples', '🍎🍎', { tip: 'et eple → epl<b>er</b>' }), I('bøker', 'books', '📖📖', { tip: 'ei bok → <b>bøker</b>. The <b>o</b> turns into <b>ø</b>.' }), I('menn', 'men', '👨👨', { tip: 'en mann → <b>menn</b>.' })]
+          }
+        ],
+        extra: () => [
+          tfmc('en katt', 'cats', ['katter', 'katten', 'kattene'], 'katter', 'en katt → katt<b>er</b>.'),
+          tfmc('et barn', 'children', ['barn', 'barner', 'barnet'], 'barn', 'et barn → <b>barn</b>. Neuter words do not change.'),
+          tfty('en stol', 'chairs', 'stoler', 'en stol → stol<b>er</b>.'),
+          tfty('ei uke', 'weeks', 'uker', 'ei uke → uk<b>er</b>. The word already ends in -e, so only <b>-r</b> is added.')
+        ]
+      }),
+      lesson('u6l3', '“The”: more than one', '🔎', {
+        groups: [
+          {
+            pre: ['The, in the plural', `<p>To say “the cars”, “the girls” or “the houses”, take the <b>plural</b> and add <b class="hl">-ene</b>. It is the same for all three genders. No more thinking!</p>
 <div class="rule" lang="nb"><b>en bil</b> → <b>bilen</b> → <b>biler</b> → <b>bilene</b></div>
-<p>(a car → the car → cars → the cars)</p>`
-    },
-    {
-      title: 'Word list: module 3',
-      html: `
-<h2>Summary</h2>
-<table>
-<tr><th>Gender</th><th>a</th><th>the</th><th>plural</th><th>the (plural)</th></tr>
-<tr><td>${G('en')}</td><td>en bil</td><td>bilen</td><td>biler</td><td>bilene</td></tr>
-<tr><td>${G('ei')}</td><td>ei jente</td><td>jenta</td><td>jenter</td><td>jentene</td></tr>
-<tr><td>${G('et')}</td><td>et hus</td><td>huset</td><td>hus</td><td>husene</td></tr>
-</table>
-<p>Listen to the forms:</p>
-<p>${[
-  ['bilen', 'the car'], ['biler', 'cars'], ['bilene', 'the cars'], ['jenta', 'the girl'], ['jenter', 'girls'], ['jentene', 'the girls'],
-  ['huset', 'the house'], ['husene', 'the houses'], ['boka', 'the book'], ['bøker', 'books'], ['eplet', 'the apple'], ['epler', 'apples'], ['menn', 'men']
-].map(([a, b]) => W(a, b)).join('')}</p>
-<p>You need <b>80%</b> in the practice test to finish this module.</p>`
-    }
-  ],
-  practice: [
-    mc('What is the <b>plural</b> of a noun?', ['The form that means more than one', 'The form that means "the"', 'The form with the article <i>en</i>', 'The first form in the dictionary'], 'The form that means more than one', 'Plural (<i>flertall</i>) means more than one: <i>cars</i>, <i>girls</i>.'),
-    mc('Which pair is the <b>definite</b> form in English?', ['the car, the cars', 'a car, cars', 'my car, your car', 'one car, two cars'], 'the car, the cars', 'Definite form (<i>bestemt form</i>) is the "the" form: a particular thing.'),
-    mc('How does Norwegian say "the" in the singular?', ['By adding an ending to the noun', 'By putting a separate word before the noun', 'By repeating the noun', 'It does not have a word for "the"'], 'By adding an ending to the noun', 'Norwegian adds an ending: <i>bil → bilen</i>, <i>hus → huset</i>.'),
-    ty('Write the definite form (the car): <b>en bil → ?</b>', 'bilen', 'Masculine nouns take <b>-en</b>: <b>bilen</b>.'),
-    ty('Write the definite form (the house): <b>et hus → ?</b>', 'huset', 'Neuter nouns take <b>-et</b>: <b>huset</b>.'),
-    ty('Write the definite form (the girl): <b>ei jente → ?</b>', ['jenta', 'jenten'], 'Feminine nouns take <b>-a</b>: <b>jenta</b>. (<i>jenten</i> is also allowed.)'),
-    ty('Write the definite form (the child): <b>et barn → ?</b>', 'barnet', 'Neuter nouns take <b>-et</b>: <b>barnet</b>.'),
-    ty('Write the definite form (the book): <b>ei bok → ?</b>', ['boka', 'boken'], 'Feminine: <b>boka</b> (or <b>boken</b>).'),
-    ty('Write the definite form (the apple): <b>et eple → ?</b>', 'eplet', 'Neuter: <b>eple + t = eplet</b>. The word already ends in <b>-e</b>, so only <b>-t</b> is added.'),
-    mc('What is the plural of <b>en bil</b> (a car)?', ['biler', 'bilen', 'bils', 'bilene'], 'biler', 'Masculine plural: add <b>-er</b>.'),
-    mc('What is the plural of <b>ei jente</b> (a girl)?', ['jenter', 'jenta', 'jentene', 'jentes'], 'jenter', 'Feminine plural: add <b>-er</b>.'),
-    mc('What is the plural of <b>et hus</b> (a house)?', ['hus', 'huser', 'huset', 'hus-er'], 'hus', 'Neuter nouns do not change in the plural. <i>et hus → hus</i>.'),
-    mc('What is the plural of <b>et eple</b> (an apple)?', ['epler', 'eple', 'eplen', 'eples'], 'epler', 'Neuter nouns ending in <b>-e</b> add <b>-r</b>: <b>epler</b>.'),
-    mc('What is the plural of <b>ei bok</b> (a book)?', ['bøker', 'boker', 'bok', 'boks'], 'bøker', '<b>bøker</b>. This one changes its vowel (<i>o → ø</i>). Learn it by heart.'),
-    mc('What is the plural of <b>en mann</b> (a man)?', ['menn', 'manner', 'manns', 'mann'], 'menn', '<b>menn</b>. Another irregular plural to learn by heart.'),
-    ty('Write "the cars" in Norwegian (one word).', 'bilene', 'Plural + <b>-ene</b>: <i>biler</i> → <b>bilene</b>.'),
-    ty('Write "the houses" in Norwegian (one word).', 'husene', '<i>hus</i> + <b>-ene</b> = <b>husene</b>.'),
-    ty('Write "the girls" in Norwegian (one word).', 'jentene', '<i>jenter</i> → <b>jentene</b>.'),
-    mc('Which row shows the correct four forms of <b>en stol</b>?', ['en stol – stolen – stoler – stolene', 'en stol – stolet – stol – stolene', 'en stol – stola – stoler – stolen', 'en stol – stolen – stol – stolet'], 'en stol – stolen – stoler – stolene', 'Masculine: <b>-en</b> (the), <b>-er</b> (plural), <b>-ene</b> (the plural).'),
-    ls('husene', 'Listen. What does this word mean?', ['the houses', 'the house', 'houses', 'a house'], 'the houses', '<b>husene</b> = the houses (plural + <i>-ene</i>).')
-  ]
-}
-];
+<p>(a car → the car → cars → the cars)</p>`],
+            items: [I('bilene', 'the cars', '🚗🚗', { tip: 'biler + <b>ene</b>' }), I('jentene', 'the girls', '👧👧', { tip: 'jenter + <b>ene</b>' }), I('husene', 'the houses', '🏠🏠', { tip: 'hus + <b>ene</b>' })]
+          },
+          { items: [I('eplene', 'the apples', '🍎🍎', { tip: 'epler + <b>ene</b>' }), I('bøkene', 'the books', '📖📖', { tip: 'bøker + <b>ene</b>' }), I('hundene', 'the dogs', '🐶🐶', { tip: 'hunder + <b>ene</b>' })] }
+        ],
+        extra: () => [
+          mc('Which row shows all four forms of <b>en stol</b> (a chair)?', ['en stol – stolen – stoler – stolene', 'en stol – stolet – stol – stolene', 'en stol – stola – stoler – stolen', 'en stol – stolen – stol – stolet'], 'en stol – stolen – stoler – stolene', 'a chair, the chair, chairs, the chairs.'),
+          tfty('biler', 'the cars', 'bilene', 'biler + <b>ene</b> = bilene.'),
+          tfty('katter', 'the cats', 'kattene', 'katter + <b>ene</b> = kattene.')
+        ]
+      })
+    ]
+  };
 
-/* Modules that are planned but not built yet. Shown greyed out on the front page. */
-window.ROADMAP = [
-  { title: 'Pronouns and verbs in the present', blurb: 'jeg, du, han, hun… and your first verbs' },
-  { title: 'Building sentences', blurb: 'Word order and the "verb second" rule' },
-  { title: 'Questions and "not"', blurb: 'Asking questions and saying ikke' },
-  { title: 'Adjectives', blurb: 'Describing words and how they change' },
-  { title: 'The past', blurb: 'Telling what happened' },
-  { title: 'Can, will, must', blurb: 'Modal verbs' },
-  { title: 'Longer sentences', blurb: 'Because, that, when and which' },
-  { title: 'Prepositions and compound words', blurb: 'på, i, til… and long Norwegian words' },
-  { title: 'Reading and conversation', blurb: 'Short texts and dialogues' }
-];
+  window.UNITS = [u1, u2, u3, u4, u5, u6];
+})();

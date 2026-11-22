@@ -2,17 +2,19 @@
   'use strict';
 
   const app = document.getElementById('app');
-  const MODULES = window.MODULES;
-  const ROADMAP = window.ROADMAP;
-  const PASS = 0.8;
-  const KEY = 'norsk123.progress.v1';
+  const UNITS = window.UNITS;
+  const KEY = 'norsk123.progress.v2';
 
-  /* ───────── progress (localStorage, with in-memory fallback) ───────── */
-  let mem = {};
+  /* flat lesson list: lessons unlock one after another */
+  const FLAT = [];
+  UNITS.forEach(u => u.lessons.forEach(l => FLAT.push({ unit: u, lesson: l, idx: FLAT.length })));
+
+  /* ───────── progress ───────── */
+  let mem = { lessons: {}, xp: 0 };
   const load = () => { try { const s = localStorage.getItem(KEY); return s ? JSON.parse(s) : mem; } catch (e) { return mem; } };
   const save = (p) => { mem = p; try { localStorage.setItem(KEY, JSON.stringify(p)); } catch (e) { /* ignore */ } };
-  const passed = (id) => !!(load()['m' + id] && load()['m' + id].passed);
-  const unlocked = (i) => i === 0 || passed(MODULES[i - 1].id);
+  const isDone = (id) => !!(load().lessons || {})[id];
+  const isOpen = (i) => i === 0 || isDone(FLAT[i - 1].lesson.id);
 
   /* ───────── speech ───────── */
   let voice = null;
@@ -31,12 +33,14 @@
   const audioOK = () => hasTTS && !!voice;
   function speak(text, slow) {
     if (!hasTTS) return;
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'nb-NO';
-    if (voice) u.voice = voice;
-    u.rate = slow ? 0.55 : 0.9;
-    speechSynthesis.speak(u);
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'nb-NO';
+      if (voice) u.voice = voice;
+      u.rate = slow ? 0.55 : 0.9;
+      speechSynthesis.speak(u);
+    } catch (e) { /* ignore */ }
   }
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-say]');
@@ -45,256 +49,421 @@
 
   /* ───────── helpers ───────── */
   const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-  const norm = (s) => s.normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim().replace(/[.!?]+$/, '');
+  const norm = (s) => s.normalize('NFC').toLowerCase().replace(/[.,!?]/g, '').replace(/\s+/g, ' ').trim();
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-  const stripTags = (s) => String(s).replace(/<[^>]+>/g, '');
+
+  /* ───────── exercise generators (only ever used on items already taught) ───────── */
+  const sayOf = (it) => (it.say || it.no).replace('...', '');
+  const art = (it) => (it.noun && /^(en|ei|et) /.test(it.no)) ? it.no.split(' ')[0] : null;
+  const bare = (it) => it.noun ? it.no.replace(/^(en|ei|et) /, '') : it.no;
+  const answersOf = (it) => {
+    const a = [it.no];
+    if (it.noun) { a.push(bare(it)); if (it.no.startsWith('ei ')) a.push(it.no.replace(/^ei /, 'en ')); }
+    return a;
+  };
+  const whyOf = (it) => `<b lang="nb">${it.no}</b> means “${it.en}”.${it.tip ? '<br>' + it.tip : ''}`;
+  const hasPic = (it) => it.vis !== it.no;
+  const bigVis = (it) => `<span class="bigvis">${it.vis}</span>`;
+  const bigWord = (it) => `<span class="bigword" lang="nb">${it.no}</span>`;
+
+  function others(item, pool, n, lab) {
+    const seen = new Set([lab(item)]), out = [];
+    for (const p of shuffle(pool)) {
+      const l = lab(p);
+      if (!seen.has(l)) { seen.add(l); out.push(p); if (out.length >= n) break; }
+    }
+    return out;
+  }
+  const options = (item, pool, lab, n) => shuffle([lab(item)].concat(others(item, pool, n || 3, lab).map(lab)));
+
+  const exPic = (it, pool) => !hasPic(it) ? exHear(it, pool) : ({
+    k: 'mc', big: bigVis(it), q: it.num ? 'Which word is this number?' : 'Which word matches the picture?',
+    opts: options(it, pool, x => x.no), a: it.no, why: whyOf(it)
+  });
+  const exHear = (it, pool, digit) => (digit && it.num) ? ({
+    k: 'mc', say: sayOf(it), q: 'Tap the number you hear.', opts: options(it, pool.filter(x => x.num), x => x.vis), a: it.vis, why: whyOf(it)
+  }) : ({
+    k: 'mc', say: sayOf(it), q: 'Tap what you hear.', opts: options(it, pool, x => x.no), a: it.no, why: whyOf(it)
+  });
+  const exEnNo = (it, pool) => ({
+    k: 'mc', big: it.num ? bigVis(it) : (hasPic(it) ? bigVis(it) : ''), q: `How do you say <b>“${it.en}”</b>?`,
+    opts: options(it, pool, x => x.no), a: it.no, why: whyOf(it)
+  });
+  const exNoEn = (it, pool) => it.num ? ({
+    k: 'mc', big: bigWord(it), say: sayOf(it), q: 'Which number is this?', opts: options(it, pool.filter(x => x.num), x => x.vis), a: it.vis, why: whyOf(it)
+  }) : ({
+    k: 'mc', big: bigWord(it), say: sayOf(it), q: 'What does this mean?', opts: options(it, pool, x => x.en), a: it.en, why: whyOf(it)
+  });
+  const exMatch = (items) => ({
+    k: 'match', q: 'Tap the matching pairs.', pairs: items.map(it => [it.no, it.num ? it.vis : it.en]),
+    why: items.map(it => `<b lang="nb">${it.no}</b> = ${it.num ? it.vis : it.en}`).join(' · ')
+  });
+  const exTypeHear = (it) => ({ k: 'type', say: sayOf(it), q: 'Type what you hear.', a: answersOf(it), why: whyOf(it) });
+  const exTypeEn = (it) => ({
+    k: 'type', big: hasPic(it) ? bigVis(it) : '', q: it.num ? 'Write this number in Norwegian.' : `Write <b>“${it.en}”</b> in Norwegian.`,
+    a: answersOf(it), why: whyOf(it)
+  });
+  const exArt = (it) => {
+    const a = art(it);
+    if (!a) return exPic(it, [it]);
+    return {
+      k: 'mc', big: bigVis(it), q: `Which little word fits? <b lang="nb">___ ${bare(it)}</b> (${it.en})`,
+      opts: a === 'ei' ? ['ei', 'et'] : ['en', 'ei', 'et'], a,
+      why: `<b lang="nb">${it.no}</b>${a === 'ei' ? '. (<i>en ' + bare(it) + '</i> is also correct in Bokmål.)' : '.'}`
+    };
+  };
+
+  function drill(items, pool, spec) {
+    const st = items.map((it, i) => (spec.articles && i % 2 === 0) ? exArt(it) : (i % 2 === 0 ? exPic(it, pool) : exHear(it, pool, spec.digits !== false)));
+    if (items.length >= 3) st.push(exMatch(items));
+    return st;
+  }
+  function finalMix(all, pool, spec) {
+    const types = ['enNo', 'typeHear', 'noEn', 'typeEn', 'hear', 'enNo'];
+    return shuffle(all).slice(0, 6).map((it, i) => {
+      switch (types[i]) {
+        case 'enNo': return spec.articles && i % 2 ? exArt(it) : exEnNo(it, pool);
+        case 'typeHear': return exTypeHear(it);
+        case 'noEn': return exNoEn(it, pool);
+        case 'typeEn': return exTypeEn(it);
+        default: return exHear(it, pool, i % 2 === 0);
+      }
+    });
+  }
+  function reviewSteps(pool, n) {
+    const seen = new Set();
+    pool = pool.filter(it => !seen.has(it.no) && seen.add(it.no));
+    if (pool.length < 4) return [];
+    const mix = shuffle(pool);
+    const out = [];
+    const kinds = ['enNo', 'hear', 'typeHear', 'noEn', 'match', 'typeEn', 'hear', 'enNo', 'match', 'noEn'];
+    for (let i = 0; i < n; i++) {
+      const it = mix[i % mix.length];
+      const k = kinds[i % kinds.length];
+      if (k === 'match') out.push(exMatch(shuffle(pool).slice(0, Math.min(4, pool.length))));
+      else if (k === 'enNo') out.push(exEnNo(it, pool));
+      else if (k === 'hear') out.push(exHear(it, pool, i % 2 === 0));
+      else if (k === 'typeHear') out.push(exTypeHear(it));
+      else if (k === 'noEn') out.push(exNoEn(it, pool));
+      else out.push(exTypeEn(it));
+    }
+    return out;
+  }
+  const toNote = (p) => Array.isArray(p) ? { k: 'note', title: p[0], html: p[1] } : p;
+
+  function buildSteps(f) {
+    const sp = f.lesson.spec;
+    if (sp.build) return sp.build();
+    if (sp.review) {
+      const pool = f.unit.lessons.filter(l => l !== f.lesson).flatMap(l => l.items);
+      return [{ k: 'note', title: 'Mix it up', icon: '🎯', html: '<p>Time to mix everything you have learned in this unit. Take your time and say each number out loud.</p>' }].concat(reviewSteps(pool, 10));
+    }
+    const all = f.lesson.items, pool = all.concat(sp.pool || []);
+    const st = [];
+    sp.groups.forEach(g => {
+      if (g.pre) st.push(toNote(g.pre));
+      g.items.forEach(it => st.push({ k: 'card', item: it }));
+      st.push(...drill(g.items, pool, sp));
+      if (g.post) st.push(toNote(g.post));
+    });
+    st.push(...finalMix(all, pool, sp));
+    if (sp.extra) st.push(...sp.extra());
+    return st;
+  }
 
   /* ───────── state + render ───────── */
-  const state = { view: 'home', m: 0, l: 0, q: null };
-
+  const state = { view: 'home', run: null };
   function render() {
-    if (state.view === 'home') renderHome();
-    else if (state.view === 'lesson') renderLesson();
-    else if (state.view === 'practice') renderQuestion();
-    else if (state.view === 'result') renderResult();
+    ({ home: renderHome, step: renderStep, done: renderDone })[state.view]();
     app.focus({ preventScroll: true });
   }
-  function go(view, patch) { Object.assign(state, { view }, patch || {}); render(); window.scrollTo({ top: 0 }); }
+  function go(view) { state.view = view; render(); window.scrollTo({ top: 0 }); }
 
-  /* ───────── home ───────── */
+  /* ───────── home: the path ───────── */
   function renderHome() {
     const p = load();
+    const doneCount = Object.keys(p.lessons || {}).length;
     let h = `<section class="card hero">
-      <h1>Norsk på 1·2·3</h1>
-      <p class="lead">Learn Norwegian (Bokmål) one small step at a time. Every new word and every grammar term is explained in English. Each module ends with a short test, and passing it opens the next module.</p>
+      <h1><span lang="nb">Hei!</span> 👋</h1>
+      <p class="lead">Welcome to <b>Norsk på 1·2·3</b>. Learn Norwegian (Bokmål) in small, friendly steps. Start at the top and follow the path.</p>
+      <div class="stats"><span>⭐ ${p.xp || 0} XP</span><span>✅ ${doneCount} of ${FLAT.length} lessons</span></div>
     </section>`;
     if (!audioOK()) {
-      h += `<div class="banner"><b>No Norwegian voice found on this device.</b> The listening buttons need one. On a Mac you can add it under System Settings → Accessibility → Spoken Content → System Voice → Manage Voices → Norwegian. Until then, listening exercises will show the word as text.</div>`;
+      h += `<div class="banner"><b>No Norwegian voice found on this device.</b> The listening buttons need one. On a Mac you can add it under System Settings → Accessibility → Spoken Content → System Voice → Manage Voices → Norwegian. Until then, listening questions will show the word as text.</div>`;
     }
-    h += '<ol class="path">';
-    MODULES.forEach((m, i) => {
-      const r = p['m' + m.id];
-      const open = unlocked(i);
-      const state_ = r && r.passed ? `Passed ${Math.round(r.best * 100)}%` : (open ? (r ? 'Continue' : 'Start') : '🔒 Locked');
-      h += `<li>${open
-        ? `<button class="mod ${r && r.passed ? 'done' : ''}" data-open="${i}">`
-        : `<div class="mod locked" aria-disabled="true">`}
-        <span class="num">${r && r.passed ? '✓' : m.id}</span>
-        <span class="info"><b>${m.title}</b><small>${m.blurb}</small></span>
-        <span class="state">${state_}</span>
-        ${open ? '</button>' : '</div>'}</li>`;
+    const poolItems = FLAT.filter(f => isDone(f.lesson.id)).flatMap(f => f.lesson.items);
+    const uniq = new Set(poolItems.map(i => i.no));
+    if (uniq.size >= 8) {
+      h += `<button class="mod practice" id="practice"><span class="num">🔁</span><span class="info"><b>Practice</b><small>A quick mixed review of what you have learned</small></span></button>`;
+    }
+    let currentMarked = false;
+    UNITS.forEach((u) => {
+      h += `<div class="unit"><div class="unithead"><div><b>${u.title}</b><small>${u.sub}</small></div><span>${u.blurb}</span></div><div class="trail">`;
+      u.lessons.forEach((l) => {
+        const f = FLAT.find(x => x.lesson === l);
+        const r = (p.lessons || {})[l.id];
+        const open = isOpen(f.idx);
+        let cls = 'node', label = '';
+        if (r) { cls += ' done'; label = '★'.repeat(r.stars) + '☆'.repeat(3 - r.stars); }
+        else if (open && !currentMarked) { cls += ' current'; currentMarked = true; label = 'Start'; }
+        else if (open) { label = ''; }
+        else { cls += ' locked'; label = '🔒'; }
+        h += `<div class="${cls}">
+          <button class="circle" ${open ? `data-lesson="${f.idx}"` : 'disabled'} aria-label="${l.title}${open ? '' : ' (locked)'}">${r ? '✓' : l.icon}</button>
+          <div class="nlabel"><b>${l.title}</b><small>${label}</small></div></div>`;
+      });
+      h += '</div></div>';
     });
-    ROADMAP.forEach((m, i) => {
-      h += `<li><div class="mod soon" aria-disabled="true">
-        <span class="num">${MODULES.length + i + 1}</span>
-        <span class="info"><b>${m.title}</b><small>${m.blurb}</small></span>
-        <span class="state">Coming soon</span></div></li>`;
-    });
-    h += '</ol>';
     app.innerHTML = h;
-    app.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => go('lesson', { m: +b.dataset.open, l: 0 })));
+    app.querySelectorAll('[data-lesson]').forEach(b => b.addEventListener('click', () => startLesson(FLAT[+b.dataset.lesson])));
+    const pr = app.querySelector('#practice');
+    if (pr) pr.onclick = () => {
+      const steps = reviewSteps(poolItems, 10);
+      begin({ unit: null, lesson: { id: '_practice', title: 'Practice', icon: '🔁' } }, steps, true);
+    };
   }
 
-  /* ───────── lessons ───────── */
-  function renderLesson() {
-    const m = MODULES[state.m];
-    const n = m.lessons.length;
-    const L = m.lessons[state.l];
-    const last = state.l === n - 1;
-    app.innerHTML = `
-      <div class="crumbs">Module ${m.id} · ${m.title}</div>
-      <div class="dots" aria-label="Lesson ${state.l + 1} of ${n}">${m.lessons.map((_, i) => `<i class="${i <= state.l ? 'on' : ''}"></i>`).join('')}</div>
-      <section class="card">${L.html}</section>
-      <div class="row between">
-        <span class="row">
-          ${state.l > 0 ? '<button class="btn ghost" id="prev">← Back</button>' : '<button class="btn ghost" id="home">Home</button>'}
-        </span>
-        <span class="row">
-          ${last ? '' : '<button class="linkish" id="skip">Skip to practice</button>'}
-          <button class="btn" id="next">${last ? 'Start practice test →' : 'Next →'}</button>
-        </span>
-      </div>`;
-    const $ = (s) => app.querySelector(s);
-    if ($('#prev')) $('#prev').onclick = () => go('lesson', { l: state.l - 1 });
-    if ($('#home')) $('#home').onclick = () => go('home');
-    if ($('#skip')) $('#skip').onclick = startPractice;
-    $('#next').onclick = () => last ? startPractice() : go('lesson', { l: state.l + 1 });
+  /* ───────── running a lesson ───────── */
+  function startLesson(f) { begin(f, buildSteps(f), false); }
+  function begin(f, steps, practice) {
+    const q = steps.map(s => Object.assign({ tries: 0 }, s));
+    state.run = { f, practice, q, i: 0, exTotal: q.filter(s => ['mc', 'type', 'match', 'bank'].includes(s.k)).length, first: 0 };
+    go('step');
   }
 
-  /* ───────── practice ───────── */
-  function startPractice() {
-    const m = MODULES[state.m];
-    const list = shuffle(m.practice).map(q => {
-      const c = Object.assign({}, q);
-      if (c.t === 'mc') c.shuf = shuffle(c.opts);
-      if (c.t === 'match') { c.left = shuffle(c.pairs.map(p => p[0])); c.right = shuffle(c.pairs.map(p => p[1])); }
-      return c;
-    });
-    go('practice', { q: { list, i: 0, score: 0, wrong: [] } });
+  function bar(R) { return `<div class="progress" aria-label="Progress"><i style="width:${Math.min(100, (R.i / R.q.length) * 100)}%"></i></div>
+    <div class="runhead"><button class="linkish" id="quit">✕ Leave lesson</button><span>${R.f.lesson.title}</span></div>`; }
+
+  function next() {
+    const R = state.run;
+    R.i++;
+    if (R.i >= R.q.length) return finishRun();
+    renderStep();
   }
-
-  const feedbackHTML = (ok, q, extra) => `<div class="feedback ${ok ? 'ok' : 'no'}" role="status">
-    <b lang="nb">${ok ? 'Riktig!' : 'Ikke helt.'} <span style="font-weight:400" lang="en">${ok ? '(Correct)' : '(Not quite)'}</span></b>
-    ${!ok && extra ? `<div>Correct answer: <b>${extra}</b></div>` : ''}
-    <div>${q.why || ''}</div></div>`;
-
-  function listenBar(q) {
-    if (!q.say) return '';
-    return `<div class="listenbar">
-      <button class="bigsay" data-say="${esc(q.say)}">🔊 Listen</button>
-      <button class="bigsay" data-say="${esc(q.say)}" data-slow="1">🐢 Slowly</button></div>
-      ${audioOK() ? '' : `<div class="noaudio">Audio is not available on this device. The word is: <b lang="nb">${q.say}</b></div>`}`;
-  }
-
-  function renderQuestion() {
-    const S = state.q;
-    const m = MODULES[state.m];
-    const q = S.list[S.i];
-    const total = S.list.length;
-    let body = '';
-
-    if (q.t === 'mc') {
-      body = `${listenBar(q)}<div class="opts ${q.shuf.every(o => stripTags(o).length < 14) && q.shuf.length === 3 ? 'two' : ''}" role="radiogroup">
-        ${q.shuf.map((o, i) => `<button class="opt" role="radio" aria-checked="false" data-i="${i}">${o}</button>`).join('')}</div>`;
-    } else if (q.t === 'type') {
-      body = `${listenBar(q)}
-        <input class="ans" id="ans" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Your answer" lang="nb">
-        <div class="chars" aria-label="Special letters"><button data-ch="æ">æ</button><button data-ch="ø">ø</button><button data-ch="å">å</button></div>`;
-    } else if (q.t === 'match') {
-      body = `<div class="match">
-        <div style="display:grid;gap:10px">${q.left.map(l => `<button class="opt" data-l="${esc(l)}" lang="nb">${l}</button>`).join('')}</div>
-        <div style="display:grid;gap:10px">${q.right.map(r => `<button class="opt" data-r="${esc(r)}">${r}</button>`).join('')}</div></div>`;
+  function finishRun() {
+    const R = state.run;
+    const acc = R.exTotal ? R.first / R.exTotal : 1;
+    const stars = acc >= 0.9 ? 3 : acc >= 0.7 ? 2 : 1;
+    const xp = R.first * 10 + 5;
+    const p = load();
+    p.xp = (p.xp || 0) + xp;
+    if (!R.practice) {
+      const prev = (p.lessons || {})[R.f.lesson.id];
+      p.lessons = p.lessons || {};
+      p.lessons[R.f.lesson.id] = { stars: Math.max(stars, prev ? prev.stars : 0), acc: Math.max(acc, prev ? prev.acc : 0) };
     }
+    save(p);
+    R.result = { acc, stars, xp };
+    go('done');
+  }
 
+  function renderDone() {
+    const R = state.run, r = R.result;
+    const nf = !R.practice && FLAT[R.f.idx + 1];
     app.innerHTML = `
-      <div class="crumbs">Module ${m.id} · Practice test</div>
-      <div class="progress" aria-label="Question ${S.i + 1} of ${total}"><i style="width:${(S.i / total) * 100}%"></i></div>
-      <section class="card">
-        <div class="crumbs">Question ${S.i + 1} of ${total}</div>
-        <div class="q">${q.q}</div>
-        ${body}
-        <div id="fb"></div>
-        <div class="row between">
-          <button class="linkish" id="quit">Leave test</button>
-          <button class="btn" id="check" ${q.t === 'match' ? 'hidden' : 'disabled'}>Check</button>
+      <section class="card done">
+        <div class="bigvis">🎉</div>
+        <h1 lang="nb">Bra jobbet!</h1>
+        <p class="lead">${R.practice ? 'Practice complete.' : 'Lesson complete.'} <span lang="en">(Well done!)</span></p>
+        ${R.practice ? '' : `<div class="stars">${'★'.repeat(r.stars)}${'☆'.repeat(3 - r.stars)}</div>`}
+        <div class="stats"><span>🎯 ${Math.round(r.acc * 100)}% on the first try</span><span>⭐ +${r.xp} XP</span></div>
+        <div class="row" style="justify-content:center;margin-top:18px">
+          ${nf ? '<button class="btn" id="nextl">Next lesson →</button>' : ''}
+          <button class="btn ${nf ? 'ghost' : ''}" id="again">${R.practice ? 'Practise again' : 'Do it again'}</button>
+          <button class="btn ghost" id="home">Back to the path</button>
         </div>
       </section>`;
-
     const $ = (s) => app.querySelector(s);
-    const fb = $('#fb');
-    const btn = $('#check');
-    $('#quit').onclick = () => go('lesson', { l: 0 });
+    if ($('#nextl')) $('#nextl').onclick = () => startLesson(nf);
+    $('#again').onclick = () => R.practice ? app.querySelector('#home').click() : startLesson(R.f);
+    $('#home').onclick = () => go('home');
+    if (R.practice) $('#again').onclick = () => {
+      const poolItems = FLAT.filter(f => isDone(f.lesson.id)).flatMap(f => f.lesson.items);
+      begin(R.f, reviewSteps(poolItems, 10), true);
+    };
+  }
+
+  const audioBar = (word) => !word ? '' : `<div class="listenbar">
+      <button class="bigsay" data-say="${esc(word)}">🔊 Listen</button>
+      <button class="bigsay" data-say="${esc(word)}" data-slow="1">🐢 Slowly</button></div>
+      ${audioOK() ? '' : `<div class="noaudio">Audio is not available on this device. The word is: <b lang="nb">${word}</b></div>`}`;
+
+  const feedbackHTML = (ok, s, correct) => `<div class="feedback ${ok ? 'ok' : 'no'}" role="status">
+    <b lang="nb">${ok ? 'Riktig!' : 'Ikke helt.'} <span style="font-weight:400" lang="en">${ok ? '(Correct)' : '(Not quite. This one will come back.)'}</span></b>
+    ${!ok && correct ? `<div>Correct answer: <b lang="nb">${correct}</b></div>` : ''}
+    <div>${s.why || ''}</div></div>`;
+
+  function renderStep() {
+    const R = state.run;
+    const s = R.q[R.i];
+    if (s.k === 'note') return renderNote(R, s);
+    if (s.k === 'card') return renderCard(R, s);
+    return renderExercise(R, s);
+  }
+
+  function wireQuit() {
+    const q = app.querySelector('#quit');
+    if (q) q.onclick = () => { if (confirm('Leave this lesson? Your progress in this lesson will be lost.')) go('home'); };
+  }
+
+  function renderNote(R, s) {
+    app.innerHTML = `${bar(R)}
+      <section class="card note">
+        ${s.icon ? `<div class="noteicon">${s.icon}</div>` : ''}
+        <h2>${s.title}</h2>${s.html}
+      </section>
+      <div class="row" style="justify-content:flex-end"><button class="btn" id="go">Continue →</button></div>`;
+    wireQuit(); app.querySelector('#go').onclick = next; app.querySelector('#go').focus();
+  }
+
+  function renderCard(R, s) {
+    const it = s.item;
+    const showPic = hasPic(it);
+    app.innerHTML = `${bar(R)}
+      <section class="card newword">
+        <div class="badge">New</div>
+        ${showPic ? `<div class="bigvis">${it.vis}</div>` : ''}
+        <div class="nw-no" lang="nb">${it.no}</div>
+        <div class="nw-en">${it.en}</div>
+        <div class="listenbar" style="justify-content:center">
+          <button class="bigsay" data-say="${esc(sayOf(it))}">🔊 Listen</button>
+          <button class="bigsay" data-say="${esc(sayOf(it))}" data-slow="1">🐢 Slowly</button>
+        </div>
+        ${it.tip ? `<div class="tip">${it.tip}</div>` : ''}
+      </section>
+      <div class="row" style="justify-content:flex-end"><button class="btn" id="go">Continue →</button></div>`;
+    wireQuit(); const b = app.querySelector('#go'); b.onclick = next; b.focus();
+    setTimeout(() => { if (state.run === R && R.q[R.i] === s) speak(sayOf(it)); }, 250);
+  }
+
+  function renderExercise(R, s) {
+    const total = R.q.length;
+    let body = '';
+    if (s.k === 'mc') {
+      s.shuf = s.shuf || shuffle(s.opts);
+      body = `${s.big ? `<div class="bigwrap">${s.big}</div>` : ''}${audioBar(s.say)}
+        <div class="opts ${s.shuf.every(o => String(o).length < 12) ? 'two' : ''}" role="radiogroup">
+        ${s.shuf.map((o, i) => `<button class="opt" role="radio" aria-checked="false" data-i="${i}" lang="nb">${o}</button>`).join('')}</div>`;
+    } else if (s.k === 'type') {
+      body = `${s.big ? `<div class="bigwrap">${s.big}</div>` : ''}${audioBar(s.say)}
+        <input class="ans" id="ans" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Your answer" lang="nb">
+        <div class="chars" aria-label="Special letters"><button data-ch="æ">æ</button><button data-ch="ø">ø</button><button data-ch="å">å</button></div>`;
+    } else if (s.k === 'match') {
+      s.left = s.left || shuffle(s.pairs.map(p => p[0]));
+      s.right = s.right || shuffle(s.pairs.map(p => p[1]));
+      body = `<div class="match">
+        <div style="display:grid;gap:10px">${s.left.map(l => `<button class="opt" data-l="${esc(l)}" lang="nb">${l}</button>`).join('')}</div>
+        <div style="display:grid;gap:10px">${s.right.map(r => `<button class="opt" data-r="${esc(r)}">${r}</button>`).join('')}</div></div>`;
+    } else if (s.k === 'bank') {
+      s.order = s.order || shuffle(s.tiles.map((t, i) => i));
+      body = `${audioBar(s.say)}<div class="line" id="line" aria-label="Your sentence"></div><div class="tiles" id="tiles"></div>`;
+    }
+
+    app.innerHTML = `${bar(R)}
+      <section class="card">
+        <div class="q">${s.q}</div>
+        ${body}
+        <div id="fb"></div>
+        <div class="row" style="justify-content:flex-end">
+          <button class="btn" id="check" ${s.k === 'match' ? 'hidden' : 'disabled'}>Check</button>
+        </div>
+      </section>`;
+    wireQuit();
+
+    const $ = (x) => app.querySelector(x);
+    const fb = $('#fb'), btn = $('#check');
     let answered = false;
 
     const finish = (ok, correctText) => {
       answered = true;
-      if (ok) S.score++; else S.wrong.push({ q: q.q, correct: correctText, why: q.why });
-      fb.innerHTML = feedbackHTML(ok, q, correctText);
+      if (ok) { if (s.tries === 0) R.first++; }
+      else if (s.k !== 'match' && s.tries < 2) R.q.push(Object.assign({}, s, { tries: s.tries + 1, shuf: null, order: null }));
+      fb.innerHTML = feedbackHTML(ok, s, correctText);
       btn.hidden = false; btn.disabled = false;
-      btn.textContent = S.i === total - 1 ? 'See result' : 'Next →';
-      btn.focus();
-      btn.onclick = () => { S.i++; if (S.i >= total) finishTest(); else renderQuestion(); };
+      btn.textContent = R.i === R.q.length - 1 ? 'Finish' : 'Continue →';
+      btn.onclick = next; btn.focus();
     };
 
-    if (q.t === 'mc') {
+    if (s.k === 'mc') {
       let sel = null;
       const opts = [...app.querySelectorAll('.opt')];
       opts.forEach(b => b.onclick = () => {
         if (answered) return;
         opts.forEach(x => { x.classList.remove('sel'); x.setAttribute('aria-checked', 'false'); });
         b.classList.add('sel'); b.setAttribute('aria-checked', 'true');
-        sel = q.shuf[+b.dataset.i]; btn.disabled = false;
+        sel = s.shuf[+b.dataset.i]; btn.disabled = false;
       });
       btn.onclick = () => {
         if (answered || sel === null) return;
-        const ok = sel === q.a;
         opts.forEach(x => {
           x.disabled = true;
-          const v = q.shuf[+x.dataset.i];
-          if (v === q.a) x.classList.add('right');
-          else if (x.classList.contains('sel')) x.classList.add('wrong');
+          const v = s.shuf[+x.dataset.i];
+          if (v === s.a) x.classList.add('right'); else if (x.classList.contains('sel')) x.classList.add('wrong');
         });
-        finish(ok, q.a);
+        finish(sel === s.a, s.a);
       };
-    } else if (q.t === 'type') {
+    } else if (s.k === 'type') {
       const inp = $('#ans');
       inp.focus();
       inp.addEventListener('input', () => { btn.disabled = !inp.value.trim(); });
       inp.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !btn.disabled) btn.click(); });
       app.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => {
         if (answered) return;
-        const s = inp.selectionStart || inp.value.length, e2 = inp.selectionEnd || inp.value.length;
-        inp.value = inp.value.slice(0, s) + b.dataset.ch + inp.value.slice(e2);
-        inp.focus(); inp.setSelectionRange(s + 1, s + 1); btn.disabled = false;
+        const a = inp.selectionStart == null ? inp.value.length : inp.selectionStart;
+        const z = inp.selectionEnd == null ? inp.value.length : inp.selectionEnd;
+        inp.value = inp.value.slice(0, a) + b.dataset.ch + inp.value.slice(z);
+        inp.focus(); inp.setSelectionRange(a + 1, a + 1); btn.disabled = false;
       });
       btn.onclick = () => {
         if (answered) return;
-        const ok = q.a.map(norm).includes(norm(inp.value));
+        const ok = s.a.map(norm).includes(norm(inp.value));
         inp.disabled = true; inp.classList.add(ok ? 'right' : 'wrong');
-        finish(ok, q.a.join(' / '));
+        finish(ok, s.a[0]);
       };
-    } else if (q.t === 'match') {
+    } else if (s.k === 'match') {
       let pickL = null, mistakes = 0, done = 0;
-      const pairOf = Object.fromEntries(q.pairs.map(p => [p[0], p[1]]));
-      const lefts = [...app.querySelectorAll('[data-l]')];
-      const rights = [...app.querySelectorAll('[data-r]')];
+      const pairOf = Object.fromEntries(s.pairs.map(p => [p[0], p[1]]));
+      const lefts = [...app.querySelectorAll('[data-l]')], rights = [...app.querySelectorAll('[data-r]')];
       lefts.forEach(b => b.onclick = () => {
         if (answered || b.classList.contains('done')) return;
         lefts.forEach(x => x.classList.remove('sel')); b.classList.add('sel'); pickL = b;
+        speak(b.dataset.l);
       });
       rights.forEach(b => b.onclick = () => {
         if (answered || b.classList.contains('done') || !pickL) return;
         if (pairOf[pickL.dataset.l] === b.dataset.r) {
           pickL.classList.remove('sel'); pickL.classList.add('done'); b.classList.add('done'); pickL = null; done++;
-          if (done === q.pairs.length) finish(mistakes === 0, q.pairs.map(p => `${p[0]} = ${p[1]}`).join(', '));
-        } else {
-          mistakes++; b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 500);
-        }
+          if (done === s.pairs.length) finish(mistakes === 0, s.pairs.map(p => `${p[0]} = ${p[1]}`).join(' · '));
+        } else { mistakes++; b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 500); }
       });
+    } else if (s.k === 'bank') {
+      const chosen = [];
+      const line = $('#line'), tiles = $('#tiles');
+      const paint = () => {
+        line.innerHTML = chosen.map(i => `<button class="tile" data-un="${i}" lang="nb">${s.tiles[i]}</button>`).join('');
+        tiles.innerHTML = s.order.map(i => `<button class="tile ${chosen.includes(i) ? 'used' : ''}" data-t="${i}" lang="nb" ${chosen.includes(i) ? 'disabled' : ''}>${s.tiles[i]}</button>`).join('');
+        line.querySelectorAll('[data-un]').forEach(b => b.onclick = () => { if (!answered) { chosen.splice(chosen.indexOf(+b.dataset.un), 1); paint(); } });
+        tiles.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { if (!answered) { chosen.push(+b.dataset.t); paint(); } });
+        btn.disabled = answered || !chosen.length;
+      };
+      paint();
+      btn.onclick = () => {
+        if (answered) return;
+        const got = norm(chosen.map(i => s.tiles[i]).join(' '));
+        const ok = s.a.map(norm).includes(got);
+        finish(ok, s.a[0]);
+      };
     }
   }
 
-  function finishTest() {
-    const S = state.q, m = MODULES[state.m];
-    const ratio = S.score / S.list.length;
-    const p = load();
-    const prev = p['m' + m.id] || { best: 0, passed: false, tries: 0 };
-    p['m' + m.id] = { best: Math.max(prev.best, ratio), passed: prev.passed || ratio >= PASS, tries: prev.tries + 1 };
-    save(p);
-    go('result');
-  }
-
-  function renderResult() {
-    const S = state.q, m = MODULES[state.m];
-    const ratio = S.score / S.list.length;
-    const ok = ratio >= PASS;
-    const next = MODULES[state.m + 1];
-    app.innerHTML = `
-      <section class="card">
-        <div class="crumbs">Module ${m.id} · Result</div>
-        <div class="score ${ok ? 'ok' : ''}">${Math.round(ratio * 100)}%</div>
-        <p class="lead">${S.score} of ${S.list.length} correct.
-          ${ok ? `<b lang="nb">Bra jobbet!</b> <span>(Well done!) ${next ? 'The next module is now open.' : 'You have finished all the modules that are ready so far. More are coming.'}</span>`
-               : `You need ${Math.round(PASS * 100)}% to pass. Read the explanations below, review the lessons, and try again.`}</p>
-        ${S.wrong.length ? `<h3>Review</h3><ul class="wronglist">${S.wrong.map(w => `<li>${w.q}<br>Answer: <b>${w.correct}</b><br><small>${w.why || ''}</small></li>`).join('')}</ul>` : ''}
-        <div class="row">
-          ${ok && next ? '<button class="btn" id="nextm">Next module →</button>' : ''}
-          <button class="btn ${ok && next ? 'ghost' : ''}" id="again">Try again</button>
-          <button class="btn ghost" id="review">Review lessons</button>
-          <button class="btn ghost" id="home">Home</button>
-        </div>
-      </section>`;
-    const $ = (s) => app.querySelector(s);
-    if ($('#nextm')) $('#nextm').onclick = () => go('lesson', { m: state.m + 1, l: 0 });
-    $('#again').onclick = startPractice;
-    $('#review').onclick = () => go('lesson', { l: 0 });
-    $('#home').onclick = () => go('home');
-  }
-
   /* ───────── header / footer ───────── */
-  document.getElementById('homeLink').addEventListener('click', (e) => { e.preventDefault(); go('home'); });
+  document.getElementById('homeLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    if (state.view === 'step') { if (confirm('Leave this lesson? Your progress in this lesson will be lost.')) go('home'); }
+    else go('home');
+  });
   document.getElementById('resetBtn').addEventListener('click', () => {
-    if (confirm('Reset all progress on this device? This cannot be undone.')) { save({}); go('home'); }
+    if (confirm('Reset all progress on this device? This cannot be undone.')) { save({ lessons: {}, xp: 0 }); go('home'); }
   });
 
   /* ───────── falling snow ───────── */
@@ -302,51 +471,40 @@
     const c = document.getElementById('snow');
     const ctx = c.getContext('2d');
     const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let w = 0, h = 0, flakes = [];
+    let w = 0, h = 0, flakes = [], raf = 0;
     function size() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       w = window.innerWidth; h = window.innerHeight;
       c.width = w * dpr; c.height = h * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       const n = Math.min(150, Math.round(w / 9));
-      flakes = Array.from({ length: n }, () => ({
-        x: Math.random() * w, y: Math.random() * h,
-        r: 1 + Math.random() * 2.6, s: 0.25 + Math.random() * 0.9, p: Math.random() * 6.28
-      }));
-      draw(0);
+      flakes = Array.from({ length: n }, () => ({ x: Math.random() * w, y: Math.random() * h, r: 1 + Math.random() * 2.6, s: 0.25 + Math.random() * 0.9, p: Math.random() * 6.28 }));
+      draw();
     }
-    function draw(t) {
+    function draw() {
       ctx.clearRect(0, 0, w, h);
       for (const f of flakes) {
-        ctx.beginPath();
-        ctx.arc(f.x, f.y, f.r, 0, 6.283);
-        ctx.fillStyle = 'rgba(255,255,255,0.95)';
-        ctx.fill();
-        ctx.lineWidth = 0.6;
-        ctx.strokeStyle = 'rgba(120,160,200,0.35)';
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 6.283);
+        ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fill();
+        ctx.lineWidth = 0.6; ctx.strokeStyle = 'rgba(120,160,200,0.35)'; ctx.stroke();
       }
     }
     function step(t) {
       for (const f of flakes) {
-        f.y += f.s;
-        f.x += Math.sin(t / 1600 + f.p) * 0.35;
+        f.y += f.s; f.x += Math.sin(t / 1600 + f.p) * 0.35;
         if (f.y > h + 5) { f.y = -5; f.x = Math.random() * w; }
         if (f.x > w + 5) f.x = -5; else if (f.x < -5) f.x = w + 5;
       }
-      draw(t);
-      raf = requestAnimationFrame(step);
+      draw(); raf = requestAnimationFrame(step);
     }
-    let raf = 0;
     size();
     window.addEventListener('resize', size);
     if (!reduce) {
       raf = requestAnimationFrame(step);
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) cancelAnimationFrame(raf); else raf = requestAnimationFrame(step);
-      });
+      document.addEventListener('visibilitychange', () => { if (document.hidden) cancelAnimationFrame(raf); else raf = requestAnimationFrame(step); });
     }
   })();
 
+  window.__norsk = { state };
   render();
 })();
